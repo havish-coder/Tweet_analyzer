@@ -42,25 +42,24 @@ flowchart LR
 | **Input** | `(date, content, company, media URL, username)` | `(date, target likes, company, media URL)` |
 | **Output** | Number of likes (integer regression) | Tweet text (generation) |
 | **Metric** | RMSE | BLEU 1–4, ROUGE, CIDEr |
-| **Model** | XGBoost classifier + 3 specialist regressors | Qwen2.5-1.5B + QLoRA (r=16) |
 | **Feature stack** | 32 hand-crafted + 384-dim MiniLM | ChatML prompt + Qwen2.5-VL-3B image caption |
 | **Best val score** | **RMSE 2,333.85** (raw likes) | **eval_loss 1.080** (token-level acc 78%) |
+| **Model** | XGBoost classifier → 3 specialist regressors (soft-routed) | Qwen2.5-1.5B-Instruct + LoRA r=16 |
 | **Folder** | [`Task-1/`](Task-1/README.md) | [`Task-2/`](Task-2/README.md) |
 
 ---
 
 ## 🏆 Headline Results
 
-### Task 1 — Single regressor vs. cascade head-to-head
+### Task 1 — Classification-then-Regression cascade
 
-| Approach | Val RMSE (raw likes) |
+| Metric | Value |
 |---|---:|
-| Single XGBoost regressor (baseline) | 2,347.89 |
-| Cascade — **hard routing** (argmax) | 2,359.96 |
-| **Cascade — soft routing (shipped) 🏆** | **2,333.85** |
-| Cascade — oracle (perfect classifier) | 2,023.77 |
+| **Validation RMSE (raw likes)** | **2,333.85** |
+| Validation RMSE (log scale) | 0.9609 |
+| Classifier accuracy | 82.2% |
 
-The shipped cascade probability-weights three specialist regressors. Full methodology + ablation in [`Task-1/REPORT.md`](Task-1/REPORT.md).
+The shipped model probability-weights three bucket-specialist regressors. Full methodology in [`Task-1/README.md`](Task-1/README.md).
 
 ### Task 2 — QLoRA on 4 GB
 
@@ -107,8 +106,8 @@ cd Task-1
 pip install -r requirements.txt
 python 01_features.py
 python 02_embed.py
-python 03b_train_class_reg.py
-python 04b_predict_class_reg.py
+python 03_train.py
+python 04_predict.py
 # → Task-1/outputs/submission_company.xlsx
 # → Task-1/outputs/submission_time.xlsx
 
@@ -132,14 +131,11 @@ Tweet_analyzer/
 │
 ├── Task-1/                            📊 Tweet Likes Prediction (RMSE)
 │   ├── README.md                      Polished overview + mermaid diagram
-│   ├── REPORT.md                      Single-regressor vs. cascade comparison
 │   ├── requirements.txt
-│   ├── 01_features.py                 Feature engineering
-│   ├── 02_embed.py                    MiniLM embeddings
-│   ├── 03_train.py                    Baseline single regressor
-│   ├── 03b_train_class_reg.py         🏆 Cascade training
-│   ├── 04_predict.py                  Baseline inference
-│   ├── 04b_predict_class_reg.py       🏆 Cascade inference
+│   ├── 01_features.py                 Phase 1: feature engineering
+│   ├── 02_embed.py                    Phase 2: MiniLM embeddings
+│   ├── 03_train.py                    Phase 3: classifier + 3 specialists
+│   ├── 04_predict.py                  Phase 4: cascade inference (soft routing)
 │   ├── data/                          Train CSV + test xlsx files
 │   ├── models/                        Trained joblib artifacts
 │   └── outputs/                       Submission xlsx files
@@ -171,14 +167,13 @@ The competition tests on **unseen brands** and **unseen time periods** — two d
 - Task 1: `TabularFeatureBuilder(is_train=True/False)` is imported by both training and prediction. Feature drift is structurally impossible.
 - Task 2: `prompt_utils.build_messages()` is imported by both `prep_llm_data.py` and `eval.py`. A one-token prompt drift would drop BLEU by 5+ points — we eliminated that risk.
 
-### 3. Honesty over score-chasing
-Both tasks include **comparisons against a simpler baseline** and **explicit failure-mode write-ups** instead of cherry-picking the winning architecture:
-- Task 1's [`REPORT.md`](Task-1/REPORT.md) ships head-to-head with hard/soft routing + oracle bounds.
-- Task 2's [`docs/DEEP_DIVE.md`](Task-2/docs/DEEP_DIVE.md) documents the bugs hit + fixed, in chronological order.
+### 3. Long-tail / heavy-imbalance handling
+- Task 1: power-law `likes` → 3-bucket classifier (class-weighted) + per-bucket regressors on `log1p`-transformed target.
+- Task 2: instruction-tuned ChatML format + beam search to capture the mode of the reference distribution.
 
-### 4. Long-tail / heavy-imbalance handling
-- Task 1: power-law `likes` → `log1p` transform + class-weighted classifier.
-- Task 2: instruction-tuned ChatML format + beam search to capture mode of the reference distribution.
+### 4. Explicit failure-mode write-ups
+- Task 1: classifier's viral-class recall (47%) is the documented bottleneck — oracle analysis quantifies the upside.
+- Task 2: [`docs/DEEP_DIVE.md`](Task-2/docs/DEEP_DIVE.md) documents bugs hit + fixed in chronological order.
 
 ---
 
