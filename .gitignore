@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+finetune_log.txt
+eval_log.txt
+logs/
+
+# Training artifacts (large, regeneratable)
+qwen15b_tweet_final/
+qwen15b_smoke_test/
+qwen_vlm_final/
+checkpoint-*/
+*.pt
+*.bin
+optimizer.pt
+rng_state.pth
+scheduler.pt
+trainer_state.json
+training_args.bin
+
+# Embeddings (regeneratable)
+*.npy
+
+# Temp / cache
+.cache/
+tmp/
+*.tmp
