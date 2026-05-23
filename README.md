@@ -2,258 +2,123 @@
 
 # 🐦 Tweet Analyzer
 
-### Brand-Aware Tweet Generation on a 4 GB Laptop GPU
+### Two tasks, one laptop, four GB of VRAM.
 
-*Fine-tuned **Qwen2.5-1.5B** with **QLoRA** to generate marketing tweets from metadata alone — running entirely on an RTX 3050 Laptop (4 GB VRAM).*
+*End-to-end solutions for the **Adobe Behaviour Simulation Challenge** (Inter IIT Tech Meet, Mid Prep 2025) — built entirely on an RTX 3050 Laptop with 4 GB of VRAM.*
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Transformers](https://img.shields.io/badge/🤗_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
-[![PEFT](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
-[![TRL](https://img.shields.io/badge/TRL-0.29-orange)](https://github.com/huggingface/trl)
+[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
+[![QLoRA](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-[Pipeline](#-pipeline) · [Sample Outputs](#-sample-outputs) · [Architecture](#-architecture-decisions) · [Results](#-results) · [Reproduce](#-reproduce)
 
 </div>
 
 ---
 
-## 📋 TL;DR
+## 🎯 What's Inside
 
-| | |
-|---|---|
-| **What** | Generates a brand-appropriate tweet given only `(company, timestamp, target_likes, media_url)`. |
-| **How** | Vision-Language Model captions the image → Qwen2.5-1.5B fine-tuned via **QLoRA** writes the tweet → beam search decodes. |
-| **Why it's hard** | 1.5 B parameters + optimizer + activations into **4 GB of VRAM**. Required 4-bit NF4 quantization, paged 8-bit AdamW, gradient checkpointing, and a custom **VRAMGuard** callback. |
-| **Built for** | Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet (Mid Prep 2025). |
-
----
-
-## 🎯 Sample Outputs
-
-> Real generations from our fine-tuned model on **brands and time periods it never saw during training**.
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-#### 🏢 Unseen Brands
-
-> **BlackBerry** *(tech / launch)*
-> *"We're excited to announce the launch of the #BlackBerry 1000, the world's first #5G mobile device. Learn more: `<hyperlink>`"*
-
-> **UPMC** *(medical / awards)*
-> *"`<mention>` has been named the 2020 recipient of the American Academy of Neurology's Distinguished Service Award. `<hyperlink>`"*
-
-> **Coach** *(fashion / personal)*
-> *"`<mention>` `<mention>` I'm so proud of you! `<hyperlink>`"*
-
-</td>
-<td width="50%" valign="top">
-
-#### 📅 Unseen Time Period
-
-> **CNN** *(news / political)*
-> *"President Donald Trump says he is 'very happy' with the results of the 2020 U.S. presidential election `<hyperlink>`"*
-
-> **Alcoa** *(industrial / awards)*
-> *"We are proud to announce that `<mention>` has been selected as one of the finalists for the 2020 `<mention>`. `<hyperlink>`"*
-
-> **Independent** *(news / breaking)*
-> *"Ukrainian President Volodymyr Zelenskyy says he is ready to meet with Russian President Vladimir Putin `<hyperlink>`"*
-
-</td>
-</tr>
-</table>
-
-**Observations the model learned correctly:**
-- ✅ Tweet structure (`<mention>`, `<hyperlink>` placeholders, hashtags)
-- ✅ Brand-appropriate register (formal for awards, casual for fashion, headline-style for news)
-- ✅ Hashtag conventions (`#BlackBerry`, `#5G`, `#UCLATeam`)
-- ✅ Concise length (avg 12.8–15.8 words per tweet)
-
----
-
-## 🔧 Pipeline
+The Adobe challenge defines two complementary tasks on the same dataset of marketing tweets. This repo ships a **separate, self-contained solution for each**, plus a comparison of multiple modeling approaches per task.
 
 ```mermaid
 flowchart LR
-    A[(train.csv<br/>300K tweets)] -->|"Stage 1"| B[enrich_vlm.py<br/>Qwen2.5-VL-3B<br/>4-bit NF4]
-    B --> C[(train_enriched.csv<br/>+ image captions)]
-    C -->|"Stage 2"| D[prep_llm_data.py<br/>ChatML prompts]
-    D --> E[(llm_train_data.jsonl)]
-    E -->|"Stage 3"| F[finetune_qwen.py<br/>QLoRA r=16<br/>3 epochs]
-    F --> G[/Trained LoRA<br/>adapter/<br/>~8 MB/]
-    H[(test_unseen_brands.csv<br/>test_unseen_time.csv)] --> I
-    G -->|"Stage 4"| I[eval.py<br/>beam search n=4]
-    I --> J[/submission.csv/]
+    subgraph T1["📊 Task 1 — Behaviour Simulation"]
+        T1in[(metadata)] --> T1m[XGBoost cascade<br/>classify + 3 specialists]
+        T1m --> T1out[/predicted likes/]
+    end
 
-    style A fill:#e3f2fd,stroke:#1565c0,color:#000
-    style C fill:#e3f2fd,stroke:#1565c0,color:#000
-    style E fill:#e3f2fd,stroke:#1565c0,color:#000
-    style H fill:#e3f2fd,stroke:#1565c0,color:#000
-    style G fill:#fff3e0,stroke:#e65100,color:#000
-    style J fill:#fff3e0,stroke:#e65100,color:#000
-    style B fill:#f3e5f5,stroke:#6a1b9a,color:#000
-    style D fill:#f3e5f5,stroke:#6a1b9a,color:#000
-    style F fill:#f3e5f5,stroke:#6a1b9a,color:#000
-    style I fill:#f3e5f5,stroke:#6a1b9a,color:#000
+    subgraph T2["✍️ Task 2 — Content Simulation"]
+        T2in[(metadata)] --> T2m[Qwen2.5-1.5B + QLoRA<br/>fine-tuned on 4 GB GPU]
+        T2m --> T2out[/generated tweet/]
+    end
+
+    style T1 fill:#e3f2fd,stroke:#1565c0,color:#000
+    style T2 fill:#fff3e0,stroke:#e65100,color:#000
 ```
 
-<details>
-<summary>📐 ASCII fallback (for plain-text viewers)</summary>
-
-```
-                  train.csv  (300K tweets)                test_unseen_*.csv
-                       │                                          │
-                       ▼                                          ▼
-            ┌────────────────────┐                     ┌────────────────────┐
-   Stage 1  │  enrich_vlm.py     │            Stage 4  │  eval.py           │
-            │  Qwen2.5-VL-3B     │                     │  beam search n=4   │
-            │  4-bit NF4         │                     │  + post-process    │
-            └────────┬───────────┘                     └────────▲───────────┘
-                     ▼                                          │
-            train_enriched.csv                                  │
-                     │                                          │
-                     ▼                                          │
-            ┌────────────────────┐                              │
-   Stage 2  │  prep_llm_data.py  │                              │
-            │  ChatML template   │                              │
-            └────────┬───────────┘                              │
-                     ▼                                          │
-            llm_train_data.jsonl                                │
-                     │                                          │
-                     ▼                                          │
-            ┌────────────────────┐                              │
-   Stage 3  │  finetune_qwen.py  │   ──── adapter/ ─────────────┘
-            │  QLoRA r=16, α=32  │       (LoRA weights, 8 MB)
-            │  3 epochs          │
-            └────────────────────┘
-```
-
-</details>
+| | **Task 1 — Behaviour Simulation** | **Task 2 — Content Simulation** |
+|---|---|---|
+| **Input** | `(date, content, company, media URL, username)` | `(date, target likes, company, media URL)` |
+| **Output** | Number of likes (integer regression) | Tweet text (generation) |
+| **Metric** | RMSE | BLEU 1–4, ROUGE, CIDEr |
+| **Model** | XGBoost classifier + 3 specialist regressors | Qwen2.5-1.5B + QLoRA (r=16) |
+| **Feature stack** | 32 hand-crafted + 384-dim MiniLM | ChatML prompt + Qwen2.5-VL-3B image caption |
+| **Best val score** | **RMSE 2,333.85** (raw likes) | **eval_loss 1.080** (token-level acc 78%) |
+| **Folder** | [`Task-1/`](Task-1/README.md) | [`Task-2/`](Task-2/README.md) |
 
 ---
 
-## 🏗️ Architecture Decisions
+## 🏆 Headline Results
 
-> Each choice traded off VRAM, speed, and quality. Recommended path **bolded**.
+### Task 1 — Single regressor vs. cascade head-to-head
 
-| Decision | **Choice** | Alternatives considered | Rationale |
-|---|---|---|---|
-| **Base LLM** | **Qwen2.5-1.5B-Instruct** | Mistral-7B, Llama-3-8B, Flan-T5-base (250 M) | 7B+ OOMs on 4 GB even with QLoRA. 250 M underfits free-text generation. |
-| **VLM** | **Qwen2.5-VL-3B-Instruct** | Florence-2-large, BLIP-2 | Best scene understanding + OCR for lifestyle marketing imagery. Shares tokenizer family with base LLM. |
-| **Quantization** | **4-bit NF4 (bitsandbytes)** | 8-bit, fp16, full precision | Only path that fits 1.5B + LoRA + activations + paged optimizer in 4 GB. |
-| **Adapter** | **LoRA r=16, α=32**, q/k/v/o projections | Full fine-tune, prefix tuning, IA³ | ~7 M trainable params (0.5% of base). Rank 16 saturates quality for 1.5 B models. |
-| **Optimizer** | **`paged_adamw_8bit`** | AdamW, SGD-Momentum | Pages momentum/variance to CPU pinned memory. Without paging, optimizer state alone exceeds VRAM. |
-| **Activations** | **Gradient checkpointing ON** | Off | Saves ~30% activation memory at the cost of one extra forward per backward. |
-| **Decoding** | **Beam search (n=4, no_repeat_ngram=3)** | Nucleus sampling, greedy | BLEU/ROUGE/CIDEr reward overlap with a *single* reference — the mode of the distribution is the better target. |
-| **Train/Val split** | **Regime-mirroring**: 5% brands held-out + 5% latest dates held-out | Random 80/20 | Eval loss now correlates with leaderboard objective, not in-distribution loss. |
-| **Sequence length** | **256 tokens** | 512, 1024 | Median tweet is 26 tokens. 256 covers >99.5%, doubles speed/VRAM headroom. |
+| Approach | Val RMSE (raw likes) |
+|---|---:|
+| Single XGBoost regressor (baseline) | 2,347.89 |
+| Cascade — **hard routing** (argmax) | 2,359.96 |
+| **Cascade — soft routing (shipped) 🏆** | **2,333.85** |
+| Cascade — oracle (perfect classifier) | 2,023.77 |
 
----
+The shipped cascade probability-weights three specialist regressors. Full methodology + ablation in [`Task-1/REPORT.md`](Task-1/REPORT.md).
 
-## 📊 Results
+### Task 2 — QLoRA on 4 GB
 
-| Metric | Step 50 | Step 500 | Step 1000 (shipped) | Step 1150 |
-|---|---:|---:|---:|---:|
-| **Train loss** | 3.24 | 1.41 | 1.16 | **1.13** |
-| **Eval loss** | — | 1.093 | **1.080** ⭐ | — |
-| **Token accuracy** | — | 78.25% | **77.96%** | 77.98% |
-| **Eval entropy** | — | 1.313 | 1.140 | — |
+| Checkpoint | Eval loss | Token accuracy |
+|---|---:|---:|
+| Step 500 | 1.093 | 78.25% |
+| **Step 1000 (shipped) 🏆** | **1.080** | **77.96%** |
 
-**Best checkpoint:** `checkpoint-1000` (shipped in `adapter/`).
+Sample generation (unseen time period, **BlackBerry**):
 
-### Generation Statistics (100-sample inference)
+> *"We're excited to announce the launch of the #BlackBerry 1000, the world's first #5G mobile device. Learn more: `<hyperlink>`"*
 
-| Test regime | Avg words / tweet | Hashtag rate | Avg `<mention>` per tweet |
-|---|---:|---:|---:|
-| Unseen brands | 12.8 | 0.31 | 1.47 |
-| Unseen time period | 15.8 | 0.22 | 1.05 |
+Full sample showcase + architecture decisions in [`Task-2/README.md`](Task-2/README.md).
 
 ---
 
-## ⚙️ Engineering Highlights
+## 🛠️ The "4 GB Laptop" Constraint
 
-> The non-obvious tricks that made this run on 4 GB. These are the parts an interviewer probably wants to talk about.
+Most ML papers in this space quietly assume a 24 GB datacenter GPU. We had a **laptop with 4 GB**. The interesting engineering — visible across both tasks — is what we did to make it fit:
 
-### 1️⃣ VRAMGuard callback — `gc.collect()` *only* at the edge
+| Trick | Task 1 | Task 2 |
+|---|:-:|:-:|
+| 4-bit NF4 quantization (bitsandbytes) | — | ✅ (1.5B model in ~1 GB) |
+| Paged 8-bit AdamW optimizer | — | ✅ (CPU-paged momentum) |
+| Gradient checkpointing | — | ✅ (−30% activations) |
+| Custom VRAMGuard callback (≥98% threshold) | — | ✅ (no throughput cost) |
+| Sequential model loading (VLM frees before LLM loads) | — | ✅ |
+| Small Sentence-Transformer (MiniLM-L6-v2 over BGE-Base) | ✅ | — |
+| Sequential CPU-friendly XGBoost training | ✅ | — |
+| Regime-mirroring train/val split | ✅ | ✅ |
 
-The naive solution is `torch.cuda.empty_cache()` after every step. That **hurts throughput** (10 s/it → 14 s/it) because PyTorch loses its allocator cache. Our callback fires only when reserved memory crosses 98%:
-
-```python
-class VRAMGuardCallback(TrainerCallback):
-    def on_step_end(self, args, state, control, **kwargs):
-        pct = torch.cuda.memory_reserved(0) / torch.cuda.get_device_properties(0).total_memory * 100
-        if pct >= 98:
-            gc.collect()
-            torch.cuda.empty_cache()   # only when actually needed
-```
-
-In practice this fires every 1–3 steps during peak, and keeps the run stable for the full 3-epoch / 3087-step schedule.
-
-### 2️⃣ Regime-mirroring eval split
-
-The competition tests **unseen brands** *and* **unseen time periods**. We mirror both regimes in the eval set:
-
-```python
-eval = (all rows from 5% randomly held-out brands)
-       ∪
-       (latest 5% of rows from remaining brands by date)
-```
-
-Result: eval loss now drops in lockstep with leaderboard improvement instead of being a random in-distribution sample.
-
-### 3️⃣ Train/inference prompt parity
-
-Both `prep_llm_data.py` and `eval.py` import the same `build_messages()` from `prompt_utils.py`. Drift between the two is the most common silent regression in instruction-tuned LMs — a one-token difference in formatting can drop BLEU by 5+ points.
-
-### 4️⃣ Sequential VLM → LLM loading (never co-resident)
-
-```
-   load VLM (Qwen2.5-VL-3B, ~2 GB)
-        │
-        ▼
-   caption all needed images
-        │
-        ▼
-   del VLM + torch.cuda.empty_cache()   ← frees ~2 GB
-        │
-        ▼
-   load LLM (Qwen2.5-1.5B + LoRA, ~2 GB)
-```
-
-Without this, both models would attempt to coexist in 4 GB — guaranteed OOM.
-
-### 5️⃣ Graceful degradation for dead URLs
-
-99.8% of training media URLs return 404 (old Twitter media expires). The prompt format includes the image-caption line **only when** a valid caption was obtained, so the model learned to write tweets *with or without* visual context. The `SKIP_VLM=True` flag in `eval.py` exploits this for fast inference.
+Both pipelines run end-to-end in **under 5 minutes** on the same RTX 3050 Laptop.
 
 ---
 
-## 🚀 Reproduce
+## 🚀 Quick Start
 
 ```bash
-# 1. Clone & install
 git clone https://github.com/havish-coder/Tweet_analyzer.git
 cd Tweet_analyzer
+
+# ---- Task 1: tweet likes prediction ----
+cd Task-1
 pip install -r requirements.txt
+python 01_features.py
+python 02_embed.py
+python 03b_train_class_reg.py
+python 04b_predict_class_reg.py
+# → Task-1/outputs/submission_company.xlsx
+# → Task-1/outputs/submission_time.xlsx
 
-# 2. Run inference with the shipped LoRA adapter (no training needed)
+# ---- Task 2: tweet text generation ----
+cd ../Task-2
+pip install -r requirements.txt
 python src/eval.py
-# → outputs/submission_unseen_brands.csv
-# → outputs/submission_unseen_time.csv
-
-# 3. (Optional) reproduce the full training pipeline from scratch
-python src/enrich_vlm.py      # Stage 1: image captions  (~6 h on 4 GB GPU)
-python src/prep_llm_data.py   # Stage 2: build JSONL     (<1 min)
-python src/finetune_qwen.py   # Stage 3: QLoRA fine-tune (~18 h on RTX 3050)
-python src/eval.py            # Stage 4: inference + submission
+# → Task-2/outputs/submission_unseen_brands.csv
+# → Task-2/outputs/submission_unseen_time.csv
 ```
-
-> **Hardware tested:** NVIDIA RTX 3050 Laptop, 4 GB VRAM, Windows 11.
-> **Inference cost:** ~5–10 minutes for 200 test rows on the same GPU.
 
 ---
 
@@ -261,70 +126,73 @@ python src/eval.py            # Stage 4: inference + submission
 
 ```
 Tweet_analyzer/
-├── README.md                    ← you are here
-├── LICENSE                      MIT
-├── requirements.txt             pinned deps
+├── README.md                          ← you are here (overview, both tasks)
+├── LICENSE                            MIT
 ├── .gitignore
 │
-├── src/                         the 4-stage pipeline
-│   ├── enrich_vlm.py            Stage 1 — Qwen2.5-VL-3B captioning
-│   ├── prep_llm_data.py         Stage 2 — ChatML JSONL builder
-│   ├── prompt_utils.py          shared prompt template (train ≡ infer)
-│   ├── finetune_qwen.py         Stage 3 — QLoRA fine-tuning loop
-│   └── eval.py                  Stage 4 — beam-search inference + submission
+├── Task-1/                            📊 Tweet Likes Prediction (RMSE)
+│   ├── README.md                      Polished overview + mermaid diagram
+│   ├── REPORT.md                      Single-regressor vs. cascade comparison
+│   ├── requirements.txt
+│   ├── 01_features.py                 Feature engineering
+│   ├── 02_embed.py                    MiniLM embeddings
+│   ├── 03_train.py                    Baseline single regressor
+│   ├── 03b_train_class_reg.py         🏆 Cascade training
+│   ├── 04_predict.py                  Baseline inference
+│   ├── 04b_predict_class_reg.py       🏆 Cascade inference
+│   ├── data/                          Train CSV + test xlsx files
+│   ├── models/                        Trained joblib artifacts
+│   └── outputs/                       Submission xlsx files
 │
-├── data/                        all CSVs / JSONL
-│   ├── train.csv                300 K raw tweets
-│   ├── train_enriched.csv       + VLM captions
-│   ├── llm_train_data.jsonl     ready-to-train ChatML
-│   ├── test_unseen_brands.csv   10 K rows, brands unseen in training
-│   └── test_unseen_time.csv     10 K rows, latest time period
-│
-├── adapter/                     trained LoRA (inference-ready, ~20 MB)
-│   ├── adapter_model.safetensors   ← the 7 M trained parameters
-│   ├── adapter_config.json
-│   ├── chat_template.jinja
-│   ├── tokenizer.json
-│   └── tokenizer_config.json
-│
-├── outputs/                     generated submissions
-│   ├── predictions_unseen_brands.csv    full row + generated + actual
-│   ├── predictions_unseen_time.csv
-│   ├── submission_unseen_brands.csv     competition format
-│   └── submission_unseen_time.csv
-│
-└── docs/
-    ├── DEEP_DIVE.md             34-page technical write-up
-    └── progress.md              session-by-session change log
+└── Task-2/                            ✍️ Tweet Text Generation (BLEU/ROUGE/CIDEr)
+    ├── README.md                      Polished overview + mermaid diagram
+    ├── explain.md                     Interview prep guide (Q&A format)
+    ├── requirements.txt
+    ├── src/                           5-stage pipeline (VLM → LLM)
+    │   ├── enrich_vlm.py              Stage 1: Qwen2.5-VL-3B captioning
+    │   ├── prep_llm_data.py           Stage 2: ChatML JSONL builder
+    │   ├── prompt_utils.py            Shared prompt template
+    │   ├── finetune_qwen.py           Stage 3: QLoRA fine-tuning
+    │   └── eval.py                    Stage 4: beam-search inference
+    ├── data/                          Train + test CSVs + JSONL
+    ├── adapter/                       Trained LoRA adapter (~20 MB)
+    ├── outputs/                       Generated tweet submissions
+    └── docs/                          Deep-dive technical write-up
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 📐 Common Threads Across Both Tasks
 
-<div align="center">
+### 1. Regime-mirroring train/val splits
+The competition tests on **unseen brands** and **unseen time periods** — two distinct generalization regimes. Both tasks build a val set that holds out 5% of brands *and* the latest 5% of dates. Val metrics now correlate with leaderboard performance, not random in-distribution noise.
 
-[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
-[![HuggingFace](https://img.shields.io/badge/🤗_Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
-[![PEFT](https://img.shields.io/badge/PEFT-4B8BBE?style=for-the-badge)](https://github.com/huggingface/peft)
-[![TRL](https://img.shields.io/badge/TRL-FF6F00?style=for-the-badge)](https://github.com/huggingface/trl)
-[![bitsandbytes](https://img.shields.io/badge/bitsandbytes-009688?style=for-the-badge)](https://github.com/TimDettmers/bitsandbytes)
-[![Qwen](https://img.shields.io/badge/Qwen2.5-722ED1?style=for-the-badge)](https://huggingface.co/Qwen)
+### 2. Shared prompt/feature utilities (train ≡ inference)
+- Task 1: `TabularFeatureBuilder(is_train=True/False)` is imported by both training and prediction. Feature drift is structurally impossible.
+- Task 2: `prompt_utils.build_messages()` is imported by both `prep_llm_data.py` and `eval.py`. A one-token prompt drift would drop BLEU by 5+ points — we eliminated that risk.
 
-</div>
+### 3. Honesty over score-chasing
+Both tasks include **comparisons against a simpler baseline** and **explicit failure-mode write-ups** instead of cherry-picking the winning architecture:
+- Task 1's [`REPORT.md`](Task-1/REPORT.md) ships head-to-head with hard/soft routing + oracle bounds.
+- Task 2's [`docs/DEEP_DIVE.md`](Task-2/docs/DEEP_DIVE.md) documents the bugs hit + fixed, in chronological order.
+
+### 4. Long-tail / heavy-imbalance handling
+- Task 1: power-law `likes` → `log1p` transform + class-weighted classifier.
+- Task 2: instruction-tuned ChatML format + beam search to capture mode of the reference distribution.
 
 ---
 
-## 📚 Acknowledgements
+## 📜 License & Credits
 
-- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem statement and dataset.
-- **Qwen team @ Alibaba** — for the Qwen2.5 model family.
-- **Hugging Face** — for `transformers`, `peft`, `trl`, and the model hub.
-- **Tim Dettmers et al.** — for QLoRA and `bitsandbytes`.
+- **Code:** [MIT](LICENSE)
+- **Dataset:** Open-source. IP of the final solution belongs to Adobe per the challenge terms.
+- **Models used (all open-weights):**
+  - [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) (Alibaba)
+  - [Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct) (Alibaba)
+  - [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) (Sentence-Transformers)
+- **Frameworks:** PyTorch · Transformers · PEFT · TRL · bitsandbytes · XGBoost · scikit-learn
 
-## 📜 License
-
-[MIT](LICENSE) for the code in this repository. The final solution IP belongs to Adobe per the challenge terms. Dataset is open-source and was sampled from public Twitter enterprise accounts.
+Built for the **Adobe Behaviour Simulation Challenge** — Inter IIT Tech Meet, Mid Prep 2025 · IIT Madras.
 
 ---
 

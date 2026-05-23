@@ -28,19 +28,19 @@ eval_log.txt
 logs/
 
 # Training artifacts (large, regeneratable)
-qwen15b_tweet_final/
-qwen15b_smoke_test/
-qwen_vlm_final/
+Task-2/qwen15b_tweet_final/
+Task-2/qwen15b_smoke_test/
+Task-2/qwen_vlm_final/
 checkpoint-*/
-*.pt
-*.bin
 optimizer.pt
 rng_state.pth
 scheduler.pt
 trainer_state.json
 training_args.bin
 
-# Embeddings (regeneratable)
+# Embeddings (regeneratable in seconds)
+Task-1/embeddings_train*.npy
+Task-1/features_train.csv
 *.npy
 
 # Temp / cache
