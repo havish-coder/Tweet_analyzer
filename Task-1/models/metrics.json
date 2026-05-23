@@ -1,0 +1,39 @@
+{
+  "q_low": 331.0,
+  "q_high": 2488.699999999997,
+  "n_train": 16104,
+  "n_eval": 1227,
+  "class_distribution_train": [
+    12076,
+    3222,
+    806
+  ],
+  "class_distribution_eval": [
+    793,
+    344,
+    90
+  ],
+  "rmse_hard_raw": 2359.960486957356,
+  "rmse_soft_raw": 2333.8485383589054,
+  "rmse_oracle_raw": 2023.7712321307465,
+  "rmse_hard_log": 1.0385994704117536,
+  "rmse_soft_log": 0.9608698255077792,
+  "classifier_acc": 0.8215158924205379,
+  "confusion_matrix": [
+    [
+      699,
+      89,
+      5
+    ],
+    [
+      72,
+      267,
+      5
+    ],
+    [
+      6,
+      42,
+      42
+    ]
+  ]
+}
