@@ -2,7 +2,7 @@
 
 # ✍️ Task 2 — Tweet Content Generation
 
-### Brand-Aware Tweet Generation on a 4 GB Laptop GPU
+### Brand-Aware Tweet Generation 
 
 *Fine-tuned **Qwen2.5-1.5B** with **QLoRA** to generate marketing tweets from metadata alone — running entirely on an RTX 3050 Laptop (4 GB VRAM).*
 
@@ -316,7 +316,7 @@ Task-2/
 
 ## 📚 Acknowledgements
 
-- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem statement and dataset.
+- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem statement and dataset.
 - **Qwen team @ Alibaba** — for the Qwen2.5 model family.
 - **Hugging Face** — for `transformers`, `peft`, `trl`, and the model hub.
 - **Tim Dettmers et al.** — for QLoRA and `bitsandbytes`.
