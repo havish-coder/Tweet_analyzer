@@ -2,7 +2,7 @@
 
 # 📊 Task 1 — Tweet Likes Prediction
 
-### *Classification-then-Regression on a 4 GB laptop*
+### *Classification-then-Regression*
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
@@ -295,7 +295,7 @@ Task-1/
 
 ## 📜 Acknowledgements
 
-- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem and dataset
+- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem and dataset
 - **dmlc/xgboost** — for the regressor and classifier
 - **HuggingFace** — for `sentence-transformers/all-MiniLM-L6-v2`
 
