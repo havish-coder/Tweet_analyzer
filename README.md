@@ -28,7 +28,7 @@ flowchart LR
         T1m --> T1out[/predicted likes/]
     end
 
-    subgraph T2["✍️ Task 2 — Content Simulation"]
+    subgraph T2[" Task 2 — Content Simulation"]
         T2in[(metadata)] --> T2m[Qwen2.5-1.5B + QLoRA<br/>fine-tuned on 4 GB GPU]
         T2m --> T2out[/generated tweet/]
     end
@@ -187,7 +187,7 @@ The competition tests on **unseen brands** and **unseen time periods** — two d
   - [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) (Sentence-Transformers)
 - **Frameworks:** PyTorch · Transformers · PEFT · TRL · bitsandbytes · XGBoost · scikit-learn
 
-Built for the **Adobe Behaviour Simulation Challenge** — Inter IIT Tech Meet, Mid Prep 2023 · IIT Madras.
+Built for the **Adobe Behaviour Simulation** 
 
 ---
 
