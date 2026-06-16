@@ -167,7 +167,7 @@ The competition tests on **unseen brands** and **unseen time periods** — two d
 - Task 1: `TabularFeatureBuilder(is_train=True/False)` is imported by both training and prediction. Feature drift is structurally impossible.
 - Task 2: `prompt_utils.build_messages()` is imported by both `prep_llm_data.py` and `eval.py`. A one-token prompt drift would drop BLEU by 5+ points — we eliminated that risk.
 
-### 3. Long-tail / heavy-imbalance handling
+### 3. Long-tail / heavy imbalance handling
 - Task 1: power-law `likes` → 3-bucket classifier (class-weighted) + per-bucket regressors on `log1p`-transformed target.
 - Task 2: instruction-tuned ChatML format + beam search to capture the mode of the reference distribution.
 
