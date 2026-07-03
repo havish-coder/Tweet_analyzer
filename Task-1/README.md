@@ -22,7 +22,7 @@
 | **What** | Predict the number of likes a tweet will receive from its metadata `(date, content, username, media URL, inferred company)`. |
 | **Approach** | **Two-stage cascade** — an XGBoost classifier sorts each tweet into a popularity bucket (common / popular / viral), then three specialist XGBoost regressors fit each bucket's distribution tightly. At inference, predictions are probability-weighted across all three specialists. |
 | **Result** | Validation RMSE **2,333.85** on raw likes (log-scale **0.96**), against a regime-mirroring held-out split. |
-| **Built for** | Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet (Mid Prep 2025). |
+| **Built under** | **Google Developer Student Club, IIT Indore** (PS: Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet, Mid Prep 2023). |
 
 ---
 
@@ -295,7 +295,8 @@ Task-1/
 
 ## 📜 Acknowledgements
 
-- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem and dataset
+- **Google Developer Student Club, IIT Indore** — for facilitating the project
+- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem and dataset
 - **dmlc/xgboost** — for the regressor and classifier
 - **HuggingFace** — for `sentence-transformers/all-MiniLM-L6-v2`
 

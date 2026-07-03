@@ -4,7 +4,7 @@
 
 ### Two tasks, one laptop, four GB of VRAM.
 
-*End-to-end solutions for the **Adobe Behaviour Simulation Challenge** (Inter IIT Tech Meet, Mid Prep 2025)*
+*A project under **Google Developer Student Club, IIT Indore** — End-to-end solutions for the Adobe Behaviour Simulation Challenge (Inter IIT Tech Meet, Mid Prep 2023).*
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
@@ -187,7 +187,7 @@ The competition tests on **unseen brands** and **unseen time periods** — two d
   - [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) (Sentence-Transformers)
 - **Frameworks:** PyTorch · Transformers · PEFT · TRL · bitsandbytes · XGBoost · scikit-learn
 
-Built for the **Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet (Mid Prep 2025)**
+Built under **Google Developer Student Club, IIT Indore** (Problem Statement: Adobe Behaviour Simulation Challenge, Inter IIT Tech Meet 2023)
 
 ---
 

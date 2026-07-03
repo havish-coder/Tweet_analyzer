@@ -26,7 +26,7 @@
 | **What** | Generates a brand-appropriate tweet given only `(company, timestamp, target_likes, media_url)`. |
 | **How** | Vision-Language Model captions the image → Qwen2.5-1.5B fine-tuned via **QLoRA** writes the tweet → beam search decodes. |
 | **Why it's hard** | 1.5 B parameters + optimizer + activations into **4 GB of VRAM**. Required 4-bit NF4 quantization, paged 8-bit AdamW, gradient checkpointing, and a custom **VRAMGuard** callback. |
-| **Built for** | Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet (Mid Prep 2025). |
+| **Built under** | **Google Developer Student Club, IIT Indore** (PS: Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet, Mid Prep 2023). |
 
 ---
 
@@ -316,7 +316,8 @@ Task-2/
 
 ## 📚 Acknowledgements
 
-- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem statement and dataset.
+- **Google Developer Student Club, IIT Indore** — for facilitating the project.
+- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem statement and dataset.
 - **Qwen team @ Alibaba** — for the Qwen2.5 model family.
 - **Hugging Face** — for `transformers`, `peft`, `trl`, and the model hub.
 - **Tim Dettmers et al.** — for QLoRA and `bitsandbytes`.
