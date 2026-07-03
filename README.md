@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Transformers](https://img.shields.io/badge/🤗_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
+[![Transformers](https://img.shields.io/badge/_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
 [![QLoRA](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -17,13 +17,13 @@
 
 ---
 
-## 🎯 What's Inside
+## What's Inside
 
 The Adobe challenge defines two complementary tasks on the same dataset of marketing tweets. This repo ships a **separate, self-contained solution for each**, plus a comparison of multiple modeling approaches per task.
 
 ```mermaid
 flowchart LR
-    subgraph T1["📊 Task 1 — Behaviour Simulation"]
+    subgraph T1["Task 1 — Behaviour Simulation"]
         T1in[(metadata)] --> T1m[XGBoost cascade<br/>classify + 3 specialists]
         T1m --> T1out[/predicted likes/]
     end
@@ -49,7 +49,7 @@ flowchart LR
 
 ---
 
-## 🏆 Headline Results
+## Headline Results
 
 ### Task 1 — Classification-then-Regression cascade
 
@@ -66,7 +66,7 @@ The shipped model probability-weights three bucket-specialist regressors. Full m
 | Checkpoint | Eval loss | Token accuracy |
 |---|---:|---:|
 | Step 500 | 1.093 | 78.25% |
-| **Step 1000 (shipped) 🏆** | **1.080** | **77.96%** |
+| **Step 1000 (shipped)** | **1.080** | **77.96%** |
 
 Sample generation (unseen time period, **BlackBerry**):
 
@@ -76,26 +76,26 @@ Full sample showcase + architecture decisions in [`Task-2/README.md`](Task-2/REA
 
 ---
 
-## 🛠️ The "4 GB Laptop" Constraint
+## The "4 GB Laptop" Constraint
 
 Most ML papers in this space quietly assume a 24 GB datacenter GPU. We had a **laptop with 4 GB**. The interesting engineering — visible across both tasks — is what we did to make it fit:
 
 | Trick | Task 1 | Task 2 |
 |---|:-:|:-:|
-| 4-bit NF4 quantization (bitsandbytes) | — | ✅ (1.5B model in ~1 GB) |
-| Paged 8-bit AdamW optimizer | — | ✅ (CPU-paged momentum) |
-| Gradient checkpointing | — | ✅ (−30% activations) |
-| Custom VRAMGuard callback (≥98% threshold) | — | ✅ (no throughput cost) |
-| Sequential model loading (VLM frees before LLM loads) | — | ✅ |
-| Small Sentence-Transformer (MiniLM-L6-v2 over BGE-Base) | ✅ | — |
-| Sequential CPU-friendly XGBoost training | ✅ | — |
-| Regime-mirroring train/val split | ✅ | ✅ |
+| 4-bit NF4 quantization (bitsandbytes) | — | (1.5B model in ~1 GB) |
+| Paged 8-bit AdamW optimizer | — | (CPU-paged momentum) |
+| Gradient checkpointing | — | (−30% activations) |
+| Custom VRAMGuard callback (≥98% threshold) | — | (no throughput cost) |
+| Sequential model loading (VLM frees before LLM loads) | — | |
+| Small Sentence-Transformer (MiniLM-L6-v2 over BGE-Base) | | — |
+| Sequential CPU-friendly XGBoost training | | — |
+| Regime-mirroring train/val split | | |
 
 Both pipelines run end-to-end in **under 5 minutes** on the same RTX 3050 Laptop.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 git clone https://github.com/havish-coder/Tweet_analyzer.git
@@ -121,7 +121,7 @@ python src/eval.py
 
 ---
 
-## 📁 Repository Layout
+## Repository Layout
 
 ```
 Tweet_analyzer/
@@ -129,7 +129,7 @@ Tweet_analyzer/
 ├── LICENSE                            MIT
 ├── .gitignore
 │
-├── Task-1/                            📊 Tweet Likes Prediction (RMSE)
+├── Task-1/                            Tweet Likes Prediction (RMSE)
 │   ├── README.md                      Polished overview + mermaid diagram
 │   ├── requirements.txt
 │   ├── 01_features.py                 Phase 1: feature engineering
@@ -140,7 +140,7 @@ Tweet_analyzer/
 │   ├── models/                        Trained joblib artifacts
 │   └── outputs/                       Submission xlsx files
 │
-└── Task-2/                            ✍️ Tweet Text Generation (BLEU/ROUGE/CIDEr)
+└── Task-2/                            Tweet Text Generation (BLEU/ROUGE/CIDEr)
     ├── README.md                      Polished overview + mermaid diagram
     ├── explain.md                     Interview prep guide (Q&A format)
     ├── requirements.txt
@@ -158,7 +158,7 @@ Tweet_analyzer/
 
 ---
 
-## 📐 Common Threads Across Both Tasks
+## Common Threads Across Both Tasks
 
 ### 1. Regime-mirroring train/val splits
 The competition tests on **unseen brands** and **unseen time periods** — two distinct generalization regimes. Both tasks build a val set that holds out 5% of brands *and* the latest 5% of dates. Val metrics now correlate with leaderboard performance, not random in-distribution noise.
@@ -177,7 +177,7 @@ The competition tests on **unseen brands** and **unseen time periods** — two d
 
 ---
 
-## 📜 License & Credits
+## License & Credits
 
 - **Code:** [MIT](LICENSE)
 - **Dataset:** Open-source. IP of the final solution belongs to Adobe per the challenge terms.

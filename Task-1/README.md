@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📊 Task 1 — Tweet Likes Prediction
+# Task 1 — Tweet Likes Prediction
 
 ### *Classification-then-Regression*
 
@@ -15,7 +15,7 @@
 
 ---
 
-## 📋 TL;DR
+## TL;DR
 
 | | |
 |---|---|
@@ -26,7 +26,7 @@
 
 ---
 
-## 🔧 Pipeline
+## Pipeline
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ flowchart LR
 ```
 
 <details>
-<summary>📐 ASCII fallback</summary>
+<summary>ASCII fallback</summary>
 
 ```
    train.csv  (17K tweets)                    test_company.xlsx
@@ -109,7 +109,7 @@ flowchart LR
 
 ---
 
-## 🧠 Methodology
+## Methodology
 
 ### The Insight
 Likes follow a **power-law distribution** — median 73, max 254,931. A single model trying to fit the entire range gets pulled in different directions by very different regimes (common tweets vs. viral ones). The cascade design lets each regressor specialize in its own slice of the distribution.
@@ -149,7 +149,7 @@ For uncertain rows, regressor predictions get averaged out → graceful degradat
 
 ---
 
-## 📐 Feature Engineering
+## Feature Engineering
 
 A clean OOP class (`TabularFeatureBuilder`) builds 32 numeric features. The same builder is imported by training and inference — drift between the two is impossible by construction.
 
@@ -193,7 +193,7 @@ On top of the 32 hand features, we concatenate a 384-dim Sentence-Transformer em
 
 ---
 
-## 📊 Results
+## Results
 
 Reported on the **regime-mirroring validation split** (1,227 rows held out: 379 from 10 unseen brands + 848 latest-date rows from remaining brands):
 
@@ -216,7 +216,7 @@ The model is **willing to bet on viral predictions** — 181 unseen-brand tweets
 
 ---
 
-## ⚙️ Engineering Highlights
+## Engineering Highlights
 
 > Talking points for the report and interview.
 
@@ -237,7 +237,7 @@ Probability-weighted specialist ensemble. Strict superset of hard routing. Reduc
 
 ---
 
-## 🚀 Reproduce
+## Reproduce
 
 ```bash
 cd Task-1
@@ -254,7 +254,7 @@ python 04_predict.py      # ~25 sec → outputs/submission_*.xlsx
 
 ---
 
-## 📁 Repository Layout
+## Repository Layout
 
 ```
 Task-1/
@@ -293,7 +293,7 @@ Task-1/
 
 ---
 
-## 📜 Acknowledgements
+## Acknowledgements
 
 - **Google Developer Student Club, IIT Indore** — for facilitating the project
 - **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem and dataset

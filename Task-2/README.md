@@ -1,6 +1,6 @@
 <div align="center">
 
-# ✍️ Task 2 — Tweet Content Generation
+# Task 2 — Tweet Content Generation
 
 ### Brand-Aware Tweet Generation 
 
@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Transformers](https://img.shields.io/badge/🤗_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
+[![Transformers](https://img.shields.io/badge/_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
 [![PEFT](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
 [![TRL](https://img.shields.io/badge/TRL-0.29-orange)](https://github.com/huggingface/trl)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -19,7 +19,7 @@
 
 ---
 
-## 📋 TL;DR
+## TL;DR
 
 | | |
 |---|---|
@@ -30,7 +30,7 @@
 
 ---
 
-## 🎯 Sample Outputs
+## Sample Outputs
 
 > Real generations from our fine-tuned model on **brands and time periods it never saw during training**.
 
@@ -68,14 +68,14 @@
 </table>
 
 **Observations the model learned correctly:**
-- ✅ Tweet structure (`<mention>`, `<hyperlink>` placeholders, hashtags)
-- ✅ Brand-appropriate register (formal for awards, casual for fashion, headline-style for news)
-- ✅ Hashtag conventions (`#BlackBerry`, `#5G`, `#UCLATeam`)
-- ✅ Concise length (avg 12.8–15.8 words per tweet)
+- Tweet structure (`<mention>`, `<hyperlink>` placeholders, hashtags)
+- Brand-appropriate register (formal for awards, casual for fashion, headline-style for news)
+- Hashtag conventions (`#BlackBerry`, `#5G`, `#UCLATeam`)
+- Concise length (avg 12.8–15.8 words per tweet)
 
 ---
 
-## 🔧 Pipeline
+## Pipeline
 
 ```mermaid
 flowchart LR
@@ -102,7 +102,7 @@ flowchart LR
 ```
 
 <details>
-<summary>📐 ASCII fallback (for plain-text viewers)</summary>
+<summary>ASCII fallback (for plain-text viewers)</summary>
 
 ```
                   train.csv  (15K tweets)                 test_unseen_*.csv
@@ -136,7 +136,7 @@ flowchart LR
 
 ---
 
-## 🏗️ Architecture Decisions
+## Architecture Decisions
 
 > Each choice traded off VRAM, speed, and quality. Recommended path **bolded**.
 
@@ -154,12 +154,12 @@ flowchart LR
 
 ---
 
-## 📊 Results
+## Results
 
 | Metric | Step 50 | Step 500 | Step 1000 (shipped) | Step 1150 |
 |---|---:|---:|---:|---:|
 | **Train loss** | 3.24 | 1.41 | 1.16 | **1.13** |
-| **Eval loss** | — | 1.093 | **1.080** ⭐ | — |
+| **Eval loss** | — | 1.093 | **1.080** | — |
 | **Token accuracy** | — | 78.25% | **77.96%** | 77.98% |
 | **Eval entropy** | — | 1.313 | 1.140 | — |
 
@@ -174,11 +174,11 @@ flowchart LR
 
 ---
 
-## ⚙️ Engineering Highlights
+## Engineering Highlights
 
 > The non-obvious tricks that made this run on 4 GB. These are the parts an interviewer probably wants to talk about.
 
-### 1️⃣ VRAMGuard callback — `gc.collect()` *only* at the edge
+### VRAMGuard callback — `gc.collect()` *only* at the edge
 
 The naive solution is `torch.cuda.empty_cache()` after every step. That **hurts throughput** (10 s/it → 14 s/it) because PyTorch loses its allocator cache. Our callback fires only when reserved memory crosses 98%:
 
@@ -193,7 +193,7 @@ class VRAMGuardCallback(TrainerCallback):
 
 In practice this fires every 1–3 steps during peak, and keeps the run stable for the full 3-epoch / 3087-step schedule.
 
-### 2️⃣ Regime-mirroring eval split
+### Regime-mirroring eval split
 
 The competition tests **unseen brands** *and* **unseen time periods**. We mirror both regimes in the eval set:
 
@@ -205,11 +205,11 @@ eval = (all rows from 5% randomly held-out brands)
 
 Result: eval loss now drops in lockstep with leaderboard improvement instead of being a random in-distribution sample.
 
-### 3️⃣ Train/inference prompt parity
+### Train/inference prompt parity
 
 Both `prep_llm_data.py` and `eval.py` import the same `build_messages()` from `prompt_utils.py`. Drift between the two is the most common silent regression in instruction-tuned LMs — a one-token difference in formatting can drop BLEU by 5+ points.
 
-### 4️⃣ Sequential VLM → LLM loading (never co-resident)
+### Sequential VLM → LLM loading (never co-resident)
 
 ```
    load VLM (Qwen2.5-VL-3B, ~2 GB)
@@ -226,13 +226,13 @@ Both `prep_llm_data.py` and `eval.py` import the same `build_messages()` from `p
 
 Without this, both models would attempt to coexist in 4 GB — guaranteed OOM.
 
-### 5️⃣ Graceful degradation for dead URLs
+### Graceful degradation for dead URLs
 
 99.8% of training media URLs return 404 (old Twitter media expires). The prompt format includes the image-caption line **only when** a valid caption was obtained, so the model learned to write tweets *with or without* visual context. The `SKIP_VLM=True` flag in `eval.py` exploits this for fast inference.
 
 ---
 
-## 🚀 Reproduce
+## Reproduce
 
 ```bash
 # 1. Clone & install
@@ -257,7 +257,7 @@ python src/eval.py            # Stage 4: inference + submission
 
 ---
 
-## 📁 Repository Layout
+## Repository Layout
 
 ```
 Task-2/
@@ -299,12 +299,12 @@ Task-2/
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 <div align="center">
 
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
-[![HuggingFace](https://img.shields.io/badge/🤗_Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
+[![HuggingFace](https://img.shields.io/badge/_Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
 [![PEFT](https://img.shields.io/badge/PEFT-4B8BBE?style=for-the-badge)](https://github.com/huggingface/peft)
 [![TRL](https://img.shields.io/badge/TRL-FF6F00?style=for-the-badge)](https://github.com/huggingface/trl)
 [![bitsandbytes](https://img.shields.io/badge/bitsandbytes-009688?style=for-the-badge)](https://github.com/TimDettmers/bitsandbytes)
@@ -314,7 +314,7 @@ Task-2/
 
 ---
 
-## 📚 Acknowledgements
+## Acknowledgements
 
 - **Google Developer Student Club, IIT Indore** — for facilitating the project.
 - **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem statement and dataset.
@@ -322,7 +322,7 @@ Task-2/
 - **Hugging Face** — for `transformers`, `peft`, `trl`, and the model hub.
 - **Tim Dettmers et al.** — for QLoRA and `bitsandbytes`.
 
-## 📜 License
+## License
 
 [MIT](LICENSE) for the code in this repository. The final solution IP belongs to Adobe per the challenge terms. Dataset is open-source and was sampled from public Twitter enterprise accounts.
 
