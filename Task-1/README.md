@@ -295,7 +295,7 @@ Task-1/
 
 ## 📜 Acknowledgements
 
-- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem and dataset
+- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem and dataset
 - **dmlc/xgboost** — for the regressor and classifier
 - **HuggingFace** — for `sentence-transformers/all-MiniLM-L6-v2`
 

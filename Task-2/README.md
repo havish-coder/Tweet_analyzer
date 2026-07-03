@@ -79,7 +79,7 @@
 
 ```mermaid
 flowchart LR
-    A[(train.csv<br/>300K tweets)] -->|"Stage 1"| B[enrich_vlm.py<br/>Qwen2.5-VL-3B<br/>4-bit NF4]
+    A[(train.csv<br/>15K tweets)] -->|"Stage 1"| B[enrich_vlm.py<br/>Qwen2.5-VL-3B<br/>4-bit NF4]
     B --> C[(train_enriched.csv<br/>+ image captions)]
     C -->|"Stage 2"| D[prep_llm_data.py<br/>ChatML prompts]
     D --> E[(llm_train_data.jsonl)]
@@ -105,7 +105,7 @@ flowchart LR
 <summary>📐 ASCII fallback (for plain-text viewers)</summary>
 
 ```
-                  train.csv  (300K tweets)                test_unseen_*.csv
+                  train.csv  (15K tweets)                 test_unseen_*.csv
                        │                                          │
                        ▼                                          ▼
             ┌────────────────────┐                     ┌────────────────────┐
@@ -273,7 +273,7 @@ Task-2/
 │   └── eval.py                  Stage 4 — beam-search inference + submission
 │
 ├── data/                        all CSVs / JSONL
-│   ├── train.csv                300 K raw tweets
+│   ├── train.csv                15 K raw tweets
 │   ├── train_enriched.csv       + VLM captions
 │   ├── llm_train_data.jsonl     ready-to-train ChatML
 │   ├── test_unseen_brands.csv   10 K rows, brands unseen in training
@@ -316,7 +316,7 @@ Task-2/
 
 ## 📚 Acknowledgements
 
-- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem statement and dataset.
+- **Adobe Digital Experience** & **Inter IIT Tech Meet (Mid Prep 2025), IIT Madras** — for the problem statement and dataset.
 - **Qwen team @ Alibaba** — for the Qwen2.5 model family.
 - **Hugging Face** — for `transformers`, `peft`, `trl`, and the model hub.
 - **Tim Dettmers et al.** — for QLoRA and `bitsandbytes`.
