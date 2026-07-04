@@ -2,7 +2,7 @@
 
 # 📊 Task 1 — Tweet Likes Prediction
 
-### *Classification-then-Regression on a 4 GB laptop*
+### *Classification-then-Regression on a 4 GB VRAM*
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
@@ -104,7 +104,7 @@ flowchart LR
 
 ---
 
-## 🧠 Methodology
+## Methodology
 
 ### The Insight
 Likes follow a **power-law distribution** — median 73, max 254,931. A single model trying to fit the entire range gets pulled in different directions by very different regimes (common tweets vs. viral ones). The cascade design lets each regressor specialize in its own slice of the distribution.
@@ -173,7 +173,7 @@ Two lessons worth internalizing:
 
 ---
 
-## 📐 Feature Engineering
+## Feature Engineering
 
 A clean OOP class (`TabularFeatureBuilder`) builds 32 numeric features. The same builder is imported by training and inference — drift between the two is impossible by construction.
 
@@ -217,7 +217,7 @@ On top of the 32 hand features, we concatenate a 384-dim Sentence-Transformer em
 
 ---
 
-## 📊 Results
+## Results
 
 Test results are on the **20,000-row competition test set** (10K unseen brands + 10K unseen time period), graded against the supplied ground-truth likes (3 unseen-time rows with `likes = -1` excluded). Validation results are on the leak-free regime-mirroring split (1,227 rows: 379 from 10 fully held-out brands + 848 latest-date rows). Shipped predictor: **single XGB regressor + smearing**, selected on validation — never on test.
 
@@ -262,9 +262,9 @@ Combined, the model beats the best constant by 23%. The two regimes tell differe
 
 ---
 
-## ⚙️ Engineering Highlights
+## Engineering Highlights
 
-> Talking points for the report and interview.
+> Few salient features:
 
 ### 1. Train/inference feature parity by construction
 `TabularFeatureBuilder` is one class with an `is_train=True/False` flag — imported by both `01_features.py` and `04_predict.py`. If the training feature set changes, inference automatically reflects it. **It is structurally impossible** for the two paths to drift.
@@ -283,7 +283,7 @@ The cascade (with soft routing) was the design bet; the single-regressor baselin
 
 ---
 
-## 🚀 Reproduce
+## Reproduce
 
 ```bash
 cd Task-1
@@ -300,7 +300,7 @@ python 04_predict.py      # ~25 sec → outputs/submission_*.xlsx
 
 ---
 
-## 📁 Repository Layout
+## Repository Layout
 
 ```
 Task-1/
@@ -321,7 +321,7 @@ Task-1/
 │
 ├── models/                                  Trained artifacts (small, joblib)
 │   ├── company_stats.joblib                 Per-brand priors for inference
-│   ├── baseline_regressor.joblib            ⭐ Shipped predictor (single XGB + smearing factor)
+│   ├── baseline_regressor.joblib            
 │   ├── classifier_model.joblib              Stage A — 7-class XGB classifier
 │   ├── regressor_class_0.joblib             Stage B — quiet band (< 100 likes)
 │   ├── regressor_class_1.joblib             Stage B — low band (100-250)
