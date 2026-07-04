@@ -1,6 +1,6 @@
 <div align="center">
 
-# Task 2 — Tweet Content Generation
+# ✍️ Task 2 — Tweet Content Generation
 
 ### Brand-Aware Tweet Generation on a 4 GB Laptop GPU
 

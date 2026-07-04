@@ -9,13 +9,13 @@
 [![scikit--learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![Sentence Transformers](https://img.shields.io/badge/SBERT-MiniLM-blueviolet)](https://www.sbert.net)
 
-[Pipeline](#-pipeline) · [Methodology](#-methodology) · [Results](#-results) · [Reproduce](#-reproduce)
+[Pipeline](#pipeline) · [Methodology](#methodology) · [Results](#results) · [Reproduce](#reproduce)
 
 </div>
 
 ---
 
-## 📋 TL;DR
+## TL;DR
 
 | | |
 |---|---|
@@ -26,7 +26,7 @@
 
 ---
 
-## 🔧 Pipeline
+## Pipeline
 
 ```mermaid
 flowchart LR
@@ -63,7 +63,7 @@ flowchart LR
 ```
 
 <details>
-<summary>📐 ASCII fallback</summary>
+<summary> ASCII fallback</summary>
 
 ```
    train.csv  (17K tweets)                    test_company.xlsx
@@ -148,7 +148,7 @@ The naïve cascade picks `argmax(class_probs)` and uses only that bucket's regre
 
 $$\hat{y} = \sum_{k=0}^{6} p(k \mid x) \cdot \texttt{expm1}(r_k(x))$$
 
-For uncertain rows, regressor predictions get averaged out → graceful degradation. For confident rows, one term dominates → same answer as hard routing. **Soft routing is hard routing's strict superset** when the classifier is calibrated.
+For uncertain rows, regressor predictions get averaged out  graceful degradation. For confident rows, one term dominates  same answer as hard routing. **Soft routing is hard routing's strict superset** when the classifier is calibrated.
 
 ### The Ablation That Decided the Shipped Model
 
@@ -156,7 +156,7 @@ Every architecture must beat the obvious baseline. On the leak-free validation s
 
 | Candidate | Val RMSE (raw likes) |
 |---|---:|
-| **Single XGB regressor + Duan smearing** ✅ shipped | **2,240.46** |
+| **Single XGB regressor + Duan smearing** (shipped) | **2,240.46** |
 | Ensemble: 70% single / 30% cascade (log-space blend) | 2,244.13 |
 | Cascade, soft-routed + per-tier smearing | 2,319.06 |
 | Cascade, soft-routed (raw space) | 2,341.12 |
@@ -264,7 +264,7 @@ Combined, the model beats the best constant by 23%. The two regimes tell differe
 
 ## Engineering Highlights
 
-> Few salient features:
+> Talking points for the report and interview.
 
 ### 1. Train/inference feature parity by construction
 `TabularFeatureBuilder` is one class with an `is_train=True/False` flag — imported by both `01_features.py` and `04_predict.py`. If the training feature set changes, inference automatically reflects it. **It is structurally impossible** for the two paths to drift.
@@ -289,10 +289,10 @@ The cascade (with soft routing) was the design bet; the single-regressor baselin
 cd Task-1
 pip install -r requirements.txt
 
-python 01_features.py     # ~30 sec → features_train.csv, models/company_stats.joblib
-python 02_embed.py        # ~10 sec → embeddings_train.npy (GPU recommended)
-python 03_train.py        # ~2 min  → models/{classifier,regressor_0/1/2}.joblib
-python 04_predict.py      # ~25 sec → outputs/submission_*.xlsx
+python 01_features.py     # ~30 sec  features_train.csv, models/company_stats.joblib
+python 02_embed.py        # ~10 sec  embeddings_train.npy (GPU recommended)
+python 03_train.py        # ~2 min   models/{classifier,regressor_0/1/2}.joblib
+python 04_predict.py      # ~25 sec  outputs/submission_*.xlsx
 ```
 
 **Hardware tested:** RTX 3050 Laptop, 4 GB VRAM, Windows 11.
@@ -304,7 +304,7 @@ python 04_predict.py      # ~25 sec → outputs/submission_*.xlsx
 
 ```
 Task-1/
-├── README.md                                ← you are here
+├── README.md                                 you are here
 ├── requirements.txt
 │
 ├── 01_features.py                           Phase 1: feature engineering
@@ -321,7 +321,7 @@ Task-1/
 │
 ├── models/                                  Trained artifacts (small, joblib)
 │   ├── company_stats.joblib                 Per-brand priors for inference
-│   ├── baseline_regressor.joblib            
+│   ├── baseline_regressor.joblib            Shipped predictor (single XGB + smearing factor)
 │   ├── classifier_model.joblib              Stage A — 7-class XGB classifier
 │   ├── regressor_class_0.joblib             Stage B — quiet band (< 100 likes)
 │   ├── regressor_class_1.joblib             Stage B — low band (100-250)
@@ -344,7 +344,7 @@ Task-1/
 
 ---
 
-## 📜 Acknowledgements
+## Acknowledgements
 
 - **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023)** — for the problem and dataset
 - **dmlc/xgboost** — for the regressor and classifier
