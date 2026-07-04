@@ -9,8 +9,13 @@ import pandas as pd
 SYSTEM_MSG = "You are a helpful assistant."
 
 
-def build_instruction(row: dict) -> str:
-    """Return the user instruction string from a tweet metadata row dict."""
+def build_instruction(row: dict, examples: list | None = None) -> str:
+    """Return the user instruction string from a tweet metadata row dict.
+
+    examples: optional list of the brand's past tweet texts (retrieval few-shot).
+    Keep train and inference consistent: only pass examples at inference if the
+    model was fine-tuned on prompts that also contained examples.
+    """
     try:
         dt = pd.to_datetime(str(row.get("date", "")))
         day_name = dt.strftime("%A")
@@ -40,19 +45,29 @@ def build_instruction(row: dict) -> str:
     except Exception:
         likes_ctx = ""
 
+    examples_ctx = ""
+    if examples:
+        cleaned = []
+        for ex in examples[:3]:
+            ex = re.sub(r"\s+", " ", str(ex)).strip()
+            if ex:
+                cleaned.append(f"- {ex}")
+        if cleaned:
+            examples_ctx = "\nRecent tweets from this brand:\n" + "\n".join(cleaned)
+
     return (
         f"You are an expert social media manager. Write an engaging marketing tweet for {company} "
         f"(username: @{username}).\n"
-        f"Context: It's {day_name} at {hour}:00.{visual_context}{likes_ctx}\n"
+        f"Context: It's {day_name} at {hour}:00.{visual_context}{likes_ctx}{examples_ctx}\n"
         f"Ensure the tweet fits the brand's style and incorporates appropriate hashtags."
     )
 
 
-def build_messages(row: dict, include_response: bool = False) -> list:
+def build_messages(row: dict, include_response: bool = False, examples: list | None = None) -> list:
     """Return the full chat messages list for Qwen ChatML format."""
     messages = [
         {"role": "system", "content": SYSTEM_MSG},
-        {"role": "user", "content": build_instruction(row)},
+        {"role": "user", "content": build_instruction(row, examples=examples)},
     ]
     if include_response:
         content = re.sub(r"\s+", " ", str(row.get("content", ""))).strip()

@@ -1,99 +1,82 @@
-<div align="center">
+# Tweet Analyzer
 
-# 🐦 Tweet Analyzer
-
-### Two tasks, one laptop, four GB of VRAM.
-
-*A project under **Google Developer Student Club, IIT Indore** — End-to-end solutions for the Adobe Behaviour Simulation Challenge (Inter IIT Tech Meet, Mid Prep 2023).*
-
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Transformers](https://img.shields.io/badge/_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
-[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
-[![QLoRA](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-</div>
-
----
+A project under **Google Developer Student Club, IIT Indore** — end-to-end solutions for the **Adobe Behaviour Simulation Challenge** (Problem Statement: Inter IIT Tech Meet, Mid Prep 2023), built entirely on an RTX 3050 Laptop with 4 GB of VRAM.
 
 ## What's Inside
 
-The Adobe challenge defines two complementary tasks on the same dataset of marketing tweets. This repo ships a **separate, self-contained solution for each**, plus a comparison of multiple modeling approaches per task.
+The Adobe challenge defines two complementary tasks on the same dataset of marketing tweets. This repo ships a separate, self-contained solution for each.
 
-```mermaid
-flowchart LR
-    subgraph T1["Task 1 — Behaviour Simulation"]
-        T1in[(metadata)] --> T1m[XGBoost cascade<br/>classify + 3 specialists]
-        T1m --> T1out[/predicted likes/]
-    end
-
-    subgraph T2[" Task 2 — Content Simulation"]
-        T2in[(metadata)] --> T2m[Qwen2.5-1.5B + QLoRA<br/>fine-tuned on 4 GB GPU]
-        T2m --> T2out[/generated tweet/]
-    end
-
-    style T1 fill:#e3f2fd,stroke:#1565c0,color:#000
-    style T2 fill:#fff3e0,stroke:#e65100,color:#000
-```
-
-| | **Task 1 — Behaviour Simulation** | **Task 2 — Content Simulation** |
+| | Task 1 — Behaviour Simulation | Task 2 — Content Simulation |
 |---|---|---|
 | **Input** | `(date, content, company, media URL, username)` | `(date, target likes, company, media URL)` |
 | **Output** | Number of likes (integer regression) | Tweet text (generation) |
-| **Metric** | RMSE | BLEU 1–4, ROUGE, CIDEr |
+| **Metric** | RMSE | BLEU 1-4, ROUGE, CIDEr |
 | **Feature stack** | 32 hand-crafted + 384-dim MiniLM | ChatML prompt + Qwen2.5-VL-3B image caption |
-| **Best val score** | **RMSE 2,333.85** (raw likes) | **eval_loss 1.080** (token-level acc 78%) |
-| **Model** | XGBoost classifier → 3 specialist regressors (soft-routed) | Qwen2.5-1.5B-Instruct + LoRA r=16 |
+| **Model** | XGBoost regressor + smearing correction (7-bucket cascade kept as ablation control) | Qwen2.5-1.5B-Instruct + LoRA r=16 |
 | **Folder** | [`Task-1/`](Task-1/README.md) | [`Task-2/`](Task-2/README.md) |
 
----
+## Achievements
 
-## Headline Results
+### Task 1 — Likes Prediction
 
-### Task 1 — Classification-then-Regression cascade
+Graded on the 20,000-row competition test set (10K unseen brands + 10K unseen time). The model was improved iteratively; both submissions are reported.
 
-| Metric | Value |
-|---|---:|
-| **Validation RMSE (raw likes)** | **2,333.85** |
-| Validation RMSE (log scale) | 0.9609 |
-| Classifier accuracy | 82.2% |
-
-The shipped model probability-weights three bucket-specialist regressors. Full methodology in [`Task-1/README.md`](Task-1/README.md).
-
-### Task 2 — QLoRA on 4 GB
-
-| Checkpoint | Eval loss | Token accuracy |
+| Metric | First submission (cascade) | Current model (regressor + smearing) |
 |---|---:|---:|
-| Step 500 | 1.093 | 78.25% |
-| **Step 1000 (shipped)** | **1.080** | **77.96%** |
+| RMSE — Unseen Brands | 963.27 | **620.83** |
+| RMSE — Unseen Time | 2,208.23 | **1,861.01** |
+| MAE — Unseen Brands | 452.87 | **350.39** |
+| MAE — Unseen Time | 590.94 | **565.46** |
+| Median absolute error | 136 | 137 |
+| Predictions within 5x of actual | — | 80.2% |
 
-Sample generation (unseen time period, **BlackBerry**):
+The current model was selected by an ablation on a leak-free, regime-mirrored validation split (single regressor + Duan smearing 2,240 vs cascade 2,341), and the validation choice was confirmed independently on both test regimes.
 
-> *"We're excited to announce the launch of the #BlackBerry 1000, the world's first #5G mobile device. Learn more: `<hyperlink>`"*
+**Baseline context.** Constant predictors derived from the training set, graded on the same test rows:
 
-Full sample showcase + architecture decisions in [`Task-2/README.md`](Task-2/README.md).
+| Predictor | Unseen Brands RMSE | Unseen Time RMSE | Combined (20K) |
+|---|---:|---:|---:|
+| Predict train median (73) | 398.9 | 2,551.6 | 1,826 |
+| Predict train mean (718) | 434.2 | 2,498.8 | 1,793 |
+| **Current model** | **620.83** | **1,861.01** | **1,387** |
 
----
+Combined, the model beats the best constant baseline by **23%**. On unseen time it adds unambiguous value — 26% lower RMSE than any constant, with strong per-tweet ranking (Spearman 0.72), driven by brand-history priors. On unseen brands, metadata carries almost no per-tweet ranking signal (Spearman ≈ 0.02, a property of the task: virality depends on follower counts absent from the data); the model's contribution there is level calibration — it beats every constant on log-RMSE (0.99 vs 1.08) while a constant wins on raw RMSE over that regime's narrow distribution.
 
-## The "4 GB Laptop" Constraint
+### Task 2 — Tweet Generation
 
-Most ML papers in this space quietly assume a 24 GB datacenter GPU. We had a **laptop with 4 GB**. The interesting engineering — visible across both tasks — is what we did to make it fit:
+Seeded random 500-sample evaluation per regime, metadata-only input (the model never sees the reference tweet). The un-fine-tuned base model, run on the same rows with identical prompts and decoding, provides the baseline.
 
-| Trick | Task 1 | Task 2 |
+| Metric (brands / time) | Base Qwen2.5-1.5B | Fine-tuned |
+|---|---:|---:|
+| BLEU-1 | 0.075 / 0.083 | **0.176 / 0.133** |
+| ROUGE-L | 0.078 / 0.086 | **0.213 / 0.185** |
+| CIDEr | 0.014 / 0.015 | **0.086 / 0.081** |
+| Eval perplexity (held-out tweets) | 53.5 | **3.3** |
+| Avg generation length (refs 16.5 / 19.3) | 27–30 words | 13.7–13.8 words |
+
+Fine-tuning roughly doubles-to-triples every overlap metric (bootstrap 95% CIs do not overlap) and cuts held-out perplexity by 94%.
+
+### Engineering highlights
+
+- QLoRA fine-tune of a 1.5B-parameter LLM on a 4 GB laptop GPU: 4-bit NF4 quantization, paged 8-bit AdamW, gradient checkpointing, and a custom VRAMGuard callback that frees the CUDA cache only when reserved memory crosses 98%.
+- Sequential VLM-then-LLM loading so the two models never co-reside in VRAM.
+- Leak-proof validation: brand priors and scaler statistics computed from training rows only; early stopping on an inner slice of train; the eval set used purely for reporting.
+- Train/inference parity by construction: one shared feature builder (Task 1) and one shared prompt template (Task 2) imported by both training and inference, with id-verified data alignment.
+- Batched, left-padded beam-search inference and seeded random evaluation samples with bootstrap confidence intervals.
+- Task 1 runs end-to-end (features, embeddings, training, 20K predictions) in about five minutes.
+
+## The 4 GB Laptop Constraint
+
+| Technique | Task 1 | Task 2 |
 |---|:-:|:-:|
-| 4-bit NF4 quantization (bitsandbytes) | — | (1.5B model in ~1 GB) |
-| Paged 8-bit AdamW optimizer | — | (CPU-paged momentum) |
-| Gradient checkpointing | — | (−30% activations) |
-| Custom VRAMGuard callback (≥98% threshold) | — | (no throughput cost) |
-| Sequential model loading (VLM frees before LLM loads) | — | |
-| Small Sentence-Transformer (MiniLM-L6-v2 over BGE-Base) | | — |
-| Sequential CPU-friendly XGBoost training | | — |
-| Regime-mirroring train/val split | | |
-
-Both pipelines run end-to-end in **under 5 minutes** on the same RTX 3050 Laptop.
-
----
+| 4-bit NF4 quantization (bitsandbytes) | — | Yes (1.5B model in ~1 GB) |
+| Paged 8-bit AdamW optimizer | — | Yes (CPU-paged momentum) |
+| Gradient checkpointing | — | Yes (~30% activation savings) |
+| VRAMGuard callback (98% threshold) | — | Yes (no throughput cost) |
+| Sequential model loading (VLM freed before LLM loads) | — | Yes |
+| Small sentence-transformer (MiniLM-L6-v2) | Yes | — |
+| CPU-friendly XGBoost training | Yes | — |
+| Regime-mirroring train/val split | Yes | Yes |
 
 ## Quick Start
 
@@ -108,91 +91,73 @@ python 01_features.py
 python 02_embed.py
 python 03_train.py
 python 04_predict.py
-# → Task-1/outputs/submission_company.xlsx
-# → Task-1/outputs/submission_time.xlsx
+# -> Task-1/outputs/submission_company.xlsx
+# -> Task-1/outputs/submission_time.xlsx
 
 # ---- Task 2: tweet text generation ----
 cd ../Task-2
 pip install -r requirements.txt
 python src/eval.py
-# → Task-2/outputs/submission_unseen_brands.csv
-# → Task-2/outputs/submission_unseen_time.csv
+# -> Task-2/outputs/submission_unseen_brands.csv
+# -> Task-2/outputs/submission_unseen_time.csv
 ```
-
----
 
 ## Repository Layout
 
 ```
 Tweet_analyzer/
-├── README.md                          ← you are here (overview, both tasks)
+├── README.md                          overview (both tasks)
+├── FINAL_REPORT.md                    graded results for both tasks
 ├── LICENSE                            MIT
-├── .gitignore
 │
-├── Task-1/                            Tweet Likes Prediction (RMSE)
-│   ├── README.md                      Polished overview + mermaid diagram
-│   ├── requirements.txt
-│   ├── 01_features.py                 Phase 1: feature engineering
-│   ├── 02_embed.py                    Phase 2: MiniLM embeddings
-│   ├── 03_train.py                    Phase 3: classifier + 3 specialists
-│   ├── 04_predict.py                  Phase 4: cascade inference (soft routing)
-│   ├── data/                          Train CSV + test xlsx files
-│   ├── models/                        Trained joblib artifacts
-│   └── outputs/                       Submission xlsx files
+├── Task-1/                            Tweet likes prediction (RMSE)
+│   ├── README.md                      methodology + results
+│   ├── 01_features.py                 feature engineering
+│   ├── 02_embed.py                    MiniLM embeddings
+│   ├── 03_train.py                    cascade + baseline ablation
+│   ├── 04_predict.py                  inference on both test regimes
+│   ├── data/                          train CSV + test xlsx files
+│   ├── models/                        trained artifacts + metrics.json
+│   └── outputs/                       submission files
 │
-└── Task-2/                            Tweet Text Generation (BLEU/ROUGE/CIDEr)
-    ├── README.md                      Polished overview + mermaid diagram
-    ├── explain.md                     Interview prep guide (Q&A format)
-    ├── requirements.txt
-    ├── src/                           5-stage pipeline (VLM → LLM)
-    │   ├── enrich_vlm.py              Stage 1: Qwen2.5-VL-3B captioning
-    │   ├── prep_llm_data.py           Stage 2: ChatML JSONL builder
-    │   ├── prompt_utils.py            Shared prompt template
-    │   ├── finetune_qwen.py           Stage 3: QLoRA fine-tuning
-    │   └── eval.py                    Stage 4: beam-search inference
-    ├── data/                          Train + test CSVs + JSONL
-    ├── adapter/                       Trained LoRA adapter (~20 MB)
-    ├── outputs/                       Generated tweet submissions
-    └── docs/                          Deep-dive technical write-up
+└── Task-2/                            Tweet text generation (BLEU/ROUGE/CIDEr)
+    ├── README.md                      methodology + results
+    ├── src/
+    │   ├── enrich_vlm.py              Qwen2.5-VL-3B media captioning
+    │   ├── prep_llm_data.py           ChatML JSONL builder
+    │   ├── prompt_utils.py            shared prompt template
+    │   ├── finetune_qwen.py           QLoRA fine-tuning
+    │   ├── select_checkpoint.py       checkpoint selection by BLEU/ROUGE
+    │   ├── gen_metrics.py             metrics + bootstrap CIs
+    │   └── eval.py                    inference + submissions
+    ├── data/                          train + test CSVs + JSONL
+    ├── adapter/                       trained LoRA adapter (~20 MB)
+    └── outputs/                       generated submissions
 ```
 
----
+## Improvements
 
-## Common Threads Across Both Tasks
+Planned enhancements, ordered by expected impact.
 
-### 1. Regime-mirroring train/val splits
-The competition tests on **unseen brands** and **unseen time periods** — two distinct generalization regimes. Both tasks build a val set that holds out 5% of brands *and* the latest 5% of dates. Val metrics now correlate with leaderboard performance, not random in-distribution noise.
+**Task 1**
+- Rolling brand-history features (recent-N engagement stats, days since last tweet, posting rate, trend) — targets the unseen-time regime, where most of the remaining error lives.
+- Prediction capping by brand-history quantiles to trim tail overshoot.
+- Hyperparameter search with brand-grouped cross-validation (Optuna + GroupKFold).
+- CatBoost with the brand as a native categorical feature, ensembled with XGBoost.
+- Residual modeling: predict deviation from the brand prior instead of the absolute target.
 
-### 2. Shared prompt/feature utilities (train ≡ inference)
-- Task 1: `TabularFeatureBuilder(is_train=True/False)` is imported by both training and prediction. Feature drift is structurally impossible.
-- Task 2: `prompt_utils.build_messages()` is imported by both `prep_llm_data.py` and `eval.py`. A one-token prompt drift would drop BLEU by 5+ points — we eliminated that risk.
-
-### 3. Long-tail / heavy imbalance handling
-- Task 1: power-law `likes` → 3-bucket classifier (class-weighted) + per-bucket regressors on `log1p`-transformed target.
-- Task 2: instruction-tuned ChatML format + beam search to capture the mode of the reference distribution.
-
-### 4. Explicit failure-mode write-ups
-- Task 1: classifier's viral-class recall (47%) is the documented bottleneck — oracle analysis quantifies the upside.
-- Task 2: [`docs/DEEP_DIVE.md`](Task-2/docs/DEEP_DIVE.md) documents bugs hit + fixed in chronological order.
-
----
+**Task 2**
+- Retrieval few-shot prompting with the brand's recent tweets (tooling shipped: `EXAMPLES_IN_TRAIN=1` at data prep, `USE_RETRIEVAL=1` at inference), paired with a re-finetune for prompt parity.
+- Checkpoint selection by generation metrics (`select_checkpoint.py`) after each training run.
+- Captioning live test media with the VLM (most relevant for the recent unseen-time regime).
+- Length-calibrated decoding (`LENGTH_PENALTY`, `MIN_NEW_TOKENS`).
+- Full 20K-row submission run via batched generation.
 
 ## License & Credits
 
 - **Code:** [MIT](LICENSE)
 - **Dataset:** Open-source. IP of the final solution belongs to Adobe per the challenge terms.
-- **Models used (all open-weights):**
-  - [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) (Alibaba)
-  - [Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct) (Alibaba)
-  - [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) (Sentence-Transformers)
-- **Frameworks:** PyTorch · Transformers · PEFT · TRL · bitsandbytes · XGBoost · scikit-learn
+- **Models used (all open-weights):** [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), [Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+- **Frameworks:** PyTorch, Transformers, PEFT, TRL, bitsandbytes, XGBoost, scikit-learn
 
-Built under **Google Developer Student Club, IIT Indore** (Problem Statement: Adobe Behaviour Simulation Challenge, Inter IIT Tech Meet 2023)
-
----
-
-<div align="center">
-
-*Built on a laptop. Designed to ship.*
-
-</div>
+Built under **Google Developer Student Club, IIT Indore** (Problem Statement: Adobe Behaviour Simulation Challenge, Inter IIT Tech Meet 2023).

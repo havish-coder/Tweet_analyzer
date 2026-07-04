@@ -125,6 +125,20 @@ def main():
             f"JSONL ({len(data)}) and CSV ({len(df_meta)}) row counts disagree — "
             f"rerun prep_llm_data.py to regenerate {DATA_PATH}."
         )
+    # Alignment by id, not just count — same count + different order would
+    # silently corrupt the regime split otherwise.
+    if all("id" in item for item in data) and "id" in df_meta.columns:
+        jsonl_ids = [str(item["id"]) for item in data]
+        csv_ids = df_meta["id"].astype(str).tolist()
+        if jsonl_ids != csv_ids:
+            raise RuntimeError(
+                "JSONL and CSV ids are misaligned — rerun prep_llm_data.py "
+                f"to regenerate {DATA_PATH} from {csv_to_use}."
+            )
+        print("  JSONL↔CSV id alignment verified.")
+    else:
+        print("  [warn] JSONL has no 'id' field (old format) — falling back to "
+              "row-count check only. Rerun prep_llm_data.py to add ids.")
 
     print("Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
