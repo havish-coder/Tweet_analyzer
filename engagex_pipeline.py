@@ -18,6 +18,14 @@ loop:
 Output: final tweet + its predicted engagement — a single metadata-in,
 (content, engagement)-out system.
 
+Two modes (quantified on 50 held-out rows, see quantify_pipeline.py):
+  --mode rerank (default): draft + N sampled candidates, all scored by Task 1,
+        highest-predicted-engagement tweet wins. Measured: +49% mean predicted
+        engagement over a single draft, 84% of rows improved.
+  --mode target: draft -> predict -> regenerate conditioned on the predicted
+        count. Measured: does NOT reliably improve drafts (mean -3%) — kept as
+        the documented negative result; conditioning calibrates, search optimizes.
+
 Usage (from repo root):
     python engagex_pipeline.py --company nike --username Nike --date "2023-06-01 15:00:00"
 """
@@ -103,7 +111,7 @@ class TweetGenerator:
             os.path.join(T2, "adapter"), trust_remote_code=True
         )
 
-    def generate(self, row: dict, likes: int) -> str:
+    def generate(self, row: dict, likes: int, sample: bool = False) -> str:
         messages = build_messages({**row, "likes": likes}, include_response=False)
         prompt = self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
@@ -111,13 +119,17 @@ class TweetGenerator:
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         n_prompt = inputs["input_ids"].shape[1]
+        kwargs = dict(
+            max_new_tokens=MAX_NEW_TOKENS, no_repeat_ngram_size=3,
+            pad_token_id=self.tokenizer.eos_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+        )
+        if sample:
+            kwargs.update(do_sample=True, temperature=0.9, top_p=0.95)
+        else:
+            kwargs.update(do_sample=False, num_beams=NUM_BEAMS)
         with torch.no_grad():
-            out = self.model.generate(
-                **inputs, max_new_tokens=MAX_NEW_TOKENS, num_beams=NUM_BEAMS,
-                no_repeat_ngram_size=3, do_sample=False,
-                pad_token_id=self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-            )
+            out = self.model.generate(**inputs, **kwargs)
         return self.tokenizer.decode(out[0][n_prompt:], skip_special_tokens=True).strip()
 
 
@@ -127,6 +139,8 @@ def main():
     ap.add_argument("--username", required=True)
     ap.add_argument("--date", required=True, help='e.g. "2023-06-01 15:00:00"')
     ap.add_argument("--media", default="", help="optional media string")
+    ap.add_argument("--mode", choices=["rerank", "target"], default="rerank")
+    ap.add_argument("--n", type=int, default=4, help="candidates for rerank mode")
     args = ap.parse_args()
 
     row = {
@@ -147,14 +161,26 @@ def main():
     print(f"      draft: {draft}")
 
     print("[2/3] Task 1 predicts the draft's engagement...")
-    predicted_likes = predictor.predict(row, draft)
-    print(f"      predicted likes: {predicted_likes}")
+    draft_likes = predictor.predict(row, draft)
+    print(f"      predicted likes: {draft_likes}")
 
-    print("[3/3] Regenerating with the predicted engagement as target...")
-    final = generator.generate(row, likes=predicted_likes)
+    if args.mode == "rerank":
+        print(f"[3/3] Sampling {args.n} candidates and reranking by predicted engagement...")
+        candidates = [(draft, draft_likes)]
+        for i in range(args.n):
+            cand = generator.generate(row, likes=draft_likes, sample=True)
+            score = predictor.predict(row, cand)
+            print(f"      candidate {i + 1}: {score:>6d} likes | {cand[:70]}")
+            candidates.append((cand, score))
+        final, predicted_likes = max(candidates, key=lambda c: c[1])
+    else:
+        print("[3/3] Regenerating with the predicted engagement as target...")
+        final = generator.generate(row, likes=draft_likes)
+        predicted_likes = predictor.predict(row, final)
 
     print("\n" + "=" * 66)
     print(f"  Company           : {args.company}")
+    print(f"  Mode              : {args.mode}")
     print(f"  Final tweet       : {final}")
     print(f"  Predicted likes   : {predicted_likes}")
     print("=" * 66)
