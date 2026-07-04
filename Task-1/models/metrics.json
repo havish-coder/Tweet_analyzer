@@ -1,39 +1,127 @@
 {
-  "q_low": 331.0,
-  "q_high": 2488.699999999997,
+  "bucket_edges": [
+    100,
+    250,
+    500,
+    1000,
+    2500,
+    5000
+  ],
+  "n_classes": 7,
   "n_train": 16104,
+  "n_fit": 14494,
+  "n_inner_es": 1610,
   "n_eval": 1227,
   "class_distribution_train": [
-    12076,
-    3222,
-    806
+    9127,
+    2374,
+    1241,
+    1435,
+    1125,
+    404,
+    398
   ],
   "class_distribution_eval": [
-    793,
-    344,
-    90
+    483,
+    245,
+    142,
+    147,
+    121,
+    61,
+    28
   ],
-  "rmse_hard_raw": 2359.960486957356,
-  "rmse_soft_raw": 2333.8485383589054,
-  "rmse_oracle_raw": 2023.7712321307465,
-  "rmse_hard_log": 1.0385994704117536,
-  "rmse_soft_log": 0.9608698255077792,
-  "classifier_acc": 0.8215158924205379,
+  "rmse_hard_raw": 2451.239584373588,
+  "rmse_soft_raw": 2341.1166139259276,
+  "rmse_soft_logspace_raw": 2417.2977681700695,
+  "rmse_oracle_raw": 2110.816548163293,
+  "rmse_hard_log": 1.634449699255677,
+  "rmse_soft_log": 1.5084740961194296,
+  "rmse_baseline_raw": 2419.3008287519765,
+  "rmse_baseline_log": 1.4754651548484623,
+  "rmse_baseline_smear_raw": 2240.459104737241,
+  "smearing_factor": 1.7243802547454834,
+  "rmse_cascade_soft_smear_raw": 2319.0636154094855,
+  "rmse_cascade_hard_smear_raw": 2472.1946714672295,
+  "per_tier_smearing_factors": [
+    1.031310796737671,
+    1.0293314456939697,
+    1.0163912773132324,
+    1.0019198656082153,
+    1.032246470451355,
+    1.024986982345581,
+    1.134337306022644
+  ],
+  "rmse_ensemble_by_baseline_weight": {
+    "0.3": 2269.486241521764,
+    "0.5": 2253.555161864179,
+    "0.7": 2244.1333068926897
+  },
+  "rmse_tweedie_raw": 2440.0052254042407,
+  "classifier_acc": 0.48166259168704156,
   "confusion_matrix": [
     [
-      699,
-      89,
-      5
+      422,
+      61,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
     [
-      72,
-      267,
-      5
+      134,
+      74,
+      33,
+      2,
+      1,
+      0,
+      1
     ],
     [
+      65,
+      33,
+      37,
+      2,
+      4,
+      0,
+      1
+    ],
+    [
+      49,
+      25,
+      25,
       6,
       42,
-      42
+      0,
+      0
+    ],
+    [
+      36,
+      10,
+      16,
+      9,
+      45,
+      2,
+      3
+    ],
+    [
+      14,
+      15,
+      7,
+      5,
+      14,
+      0,
+      6
+    ],
+    [
+      5,
+      0,
+      6,
+      2,
+      7,
+      1,
+      7
     ]
-  ]
+  ],
+  "notes": "Eval set is regime-mirrored (unseen brands + latest time) and used ONLY for reporting; early stopping uses an inner 10% slice of train. Company priors recomputed from train rows only, so held-out-brand rows use the unseen-brand fallback. Soft routing is raw-space, matching 04_predict.py."
 }

@@ -1,8 +1,8 @@
 <div align="center">
 
-# Task 1 — Tweet Likes Prediction
+# 📊 Task 1 — Tweet Likes Prediction
 
-### *Classification-then-Regression*
+### *Classification-then-Regression on a 4 GB laptop*
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
@@ -15,18 +15,18 @@
 
 ---
 
-## TL;DR
+## 📋 TL;DR
 
 | | |
 |---|---|
 | **What** | Predict the number of likes a tweet will receive from its metadata `(date, content, username, media URL, inferred company)`. |
-| **Approach** | **Two-stage cascade** — an XGBoost classifier sorts each tweet into a popularity bucket (common / popular / viral), then three specialist XGBoost regressors fit each bucket's distribution tightly. At inference, predictions are probability-weighted across all three specialists. |
-| **Result** | Validation RMSE **2,333.85** on raw likes (log-scale **0.96**), against a regime-mirroring held-out split. |
-| **Built under** | **Google Developer Student Club, IIT Indore** (PS: Adobe Behaviour Simulation Challenge — Inter IIT Tech Meet, Mid Prep 2023). |
+| **Approach** | Two candidates trained side-by-side on a leak-free regime-mirrored validation split: (a) a **7-band classify-then-regress cascade** (edges at 100, 250, 500, 1k, 2.5k, 5k likes, soft-routed), and (b) a **single XGBoost regressor with a Duan smearing correction**. The ablation picked the winner honestly: **the smeared single regressor beats the cascade** (val RMSE 2,240 vs 2,341) and is the shipped predictor. |
+| **Result** | Test RMSE **621 (unseen brands)** / **1,861 (unseen time)** — combined **1,387** on 20K rows, median absolute error 137 likes, 53% of predictions within 2× of actual. |
+| **Built for** | Google Developer Student Club, IIT Indore — Adobe Behaviour Simulation Challenge (Inter IIT Tech Meet, Mid Prep 2023). |
 
 ---
 
-## Pipeline
+## 🔧 Pipeline
 
 ```mermaid
 flowchart LR
@@ -39,17 +39,13 @@ flowchart LR
     C --> G[03_train.py]
     F --> G
 
-    G --> H1[/classifier.joblib<br/>3-class softprob/]
-    G --> H2[/regressor_class_0.joblib<br/>common bucket/]
-    G --> H3[/regressor_class_1.joblib<br/>popular bucket/]
-    G --> H4[/regressor_class_2.joblib<br/>viral bucket/]
+    G --> H1[/classifier.joblib<br/>7-class softprob/]
+    G --> H2[/regressor_class_0..6.joblib<br/>7 specialist regressors<br/>one per popularity band/]
 
     I[(test_company.xlsx<br/>test_time.xlsx)] --> J[04_predict.py]
     D --> J
     H1 --> J
     H2 --> J
-    H3 --> J
-    H4 --> J
     J --> K[/submission_company.xlsx<br/>submission_time.xlsx/]
 
     style A fill:#e3f2fd,stroke:#1565c0,color:#000
@@ -59,8 +55,6 @@ flowchart LR
     style D fill:#fff3e0,stroke:#e65100,color:#000
     style H1 fill:#fff3e0,stroke:#e65100,color:#000
     style H2 fill:#fff3e0,stroke:#e65100,color:#000
-    style H3 fill:#fff3e0,stroke:#e65100,color:#000
-    style H4 fill:#fff3e0,stroke:#e65100,color:#000
     style K fill:#fff3e0,stroke:#e65100,color:#000
     style B fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style E fill:#f3e5f5,stroke:#6a1b9a,color:#000
@@ -69,7 +63,7 @@ flowchart LR
 ```
 
 <details>
-<summary>ASCII fallback</summary>
+<summary>📐 ASCII fallback</summary>
 
 ```
    train.csv  (17K tweets)                    test_company.xlsx
@@ -82,7 +76,7 @@ flowchart LR
  │  media regex,    │           │           │   - features         │
  │  LOO company     │           │           │   - MiniLM embed     │
  └────────┬─────────┘           │           │   - classifier probs │
-          │                     │           │   - 3 reg preds      │
+          │                     │           │   - 7 reg preds      │
           ▼                     │           │   - soft route Σ p·r │
   features_train.csv            │           └──────────┬───────────┘
           │                     │                      ▼
@@ -99,9 +93,10 @@ flowchart LR
  ┌────────────────────────────┐ │
  │ 03_train.py                │ │
  │  Stage A: XGB classifier   │ │
- │   (3 buckets, class-weighted)│
- │  Stage B: 3 XGB regressors │─┘
+ │   (7 buckets, class-weighted)│
+ │  Stage B: 7 XGB regressors │─┘
  │   (one per bucket, log_likes)
+ │  + single-reg baseline     │
  └────────────────────────────┘
 ```
 
@@ -109,7 +104,7 @@ flowchart LR
 
 ---
 
-## Methodology
+## 🧠 Methodology
 
 ### The Insight
 Likes follow a **power-law distribution** — median 73, max 254,931. A single model trying to fit the entire range gets pulled in different directions by very different regimes (common tweets vs. viral ones). The cascade design lets each regressor specialize in its own slice of the distribution.
@@ -118,38 +113,67 @@ Likes follow a **power-law distribution** — median 73, max 254,931. A single m
 
 | Class | Range | Train rows | Eval rows |
 |---|---|---:|---:|
-| **0 — Common** | likes < 331 | 12,076 (75%) | 793 |
-| **1 — Popular** | 331 ≤ likes < 2,489 | 3,222 (20%) | 344 |
-| **2 — Viral** | likes ≥ 2,489 | 806 (5%) | 90 |
+| **0 — Quiet** | likes < 100 | 9,127 (57%) | 483 |
+| **1 — Low** | 100 ≤ likes < 250 | 2,374 (15%) | 245 |
+| **2 — Mild** | 250 ≤ likes < 500 | 1,241 (8%) | 142 |
+| **3 — Popular** | 500 ≤ likes < 1,000 | 1,435 (9%) | 147 |
+| **4 — Very Popular** | 1,000 ≤ likes < 2,500 | 1,125 (7%) | 121 |
+| **5 — Viral** | 2,500 ≤ likes < 5,000 | 404 (3%) | 61 |
+| **6 — Mega-Viral** | likes ≥ 5,000 | 398 (2%) | 28 |
 
 ### Stage A — XGBoost Classifier
-3-class softprob, class-weighted to counteract the 75/20/5 imbalance. Trained with early stopping on the eval set.
+7-class softprob, class-weighted to counteract the long-tail imbalance (largest class has ~23× more rows than the smallest). Early stopping runs on an inner 10% slice of train; the regime-mirrored eval set is used only for reporting.
 
-**Eval accuracy: 82.2%** with these per-class numbers:
+**Eval accuracy: 48.2%** on the leak-free split — above the 14% random baseline for 7 classes, but far below the 65% measured before the company-prior leak was fixed. That gap is itself informative: most of the classifier's earlier apparent skill came from leaked brand history, not from the tweet.
 
 | Class | Precision | Recall | F1 |
 |---|---:|---:|---:|
-| 0 (common) | 0.900 | 0.881 | 0.890 |
-| 1 (popular) | 0.671 | 0.776 | 0.720 |
-| 2 (viral) | 0.808 | 0.467 | 0.592 |
+| 0 (quiet) | 0.582 | 0.874 | 0.699 |
+| 1 (low) | 0.339 | 0.302 | 0.320 |
+| 2 (mild) | 0.298 | 0.261 | 0.278 |
+| 3 (popular) | 0.231 | 0.041 | 0.069 |
+| 4 (very popular) | 0.398 | 0.372 | 0.385 |
+| 5 (viral) | 0.000 | 0.000 | 0.000 |
+| 6 (mega-viral) | 0.389 | 0.250 | 0.304 |
 
-> **The viral class has the lowest recall (47%)** — that's the cascade's biggest weakness *and* biggest remaining upside. An oracle (perfect classifier) would drop RMSE another 13%, mostly by catching more viral tweets.
+> Without leaked brand priors, the viral band is essentially unlearnable from metadata alone (0% recall) and the mid bands blur into their neighbours. This is why the cascade loses to the single regressor below — the routing signal isn't strong enough to pay for the added complexity.
 
-### Stage B — Three Specialist Regressors
-Each XGBoost regressor sees only its bucket's rows during training, with `log1p(likes)` as the target. By specializing, each one learns its bucket's distribution tightly instead of trying to fit the whole range.
+### Stage B — Seven Specialist Regressors
+Each XGBoost regressor sees only its bucket's rows during training, with `log1p(likes)` as the target. By specializing, each one learns its bucket's distribution tightly instead of trying to fit the whole range. The flip side (worth knowing): at inference every specialist scores every row, including rows far outside its training range — soft routing weights that extrapolation by class probability rather than eliminating it.
 
 ### Soft Routing — The Inference Step
-The naïve cascade picks `argmax(class_probs)` and uses only that bucket's regressor — **hard routing**. The problem: if the classifier is wrong (and it is, 18% of the time), the row goes to a regressor that *never trained on its distribution*. Errors compound.
+The naïve cascade picks `argmax(class_probs)` and uses only that bucket's regressor — **hard routing**. The problem: when the classifier is wrong, the row goes to a regressor that *never trained on its distribution*. Errors compound.
 
-**Soft routing** weights *all three* regressor predictions by class probability:
+**Soft routing** weights *all seven* regressor predictions by class probability, in raw-likes space — the same rule in both `03_train.py` (validation) and `04_predict.py` (inference):
 
-$$\hat{y} = \sum_{k=0}^{2} p(k \mid x) \cdot \texttt{expm1}(r_k(x))$$
+$$\hat{y} = \sum_{k=0}^{6} p(k \mid x) \cdot \texttt{expm1}(r_k(x))$$
 
 For uncertain rows, regressor predictions get averaged out → graceful degradation. For confident rows, one term dominates → same answer as hard routing. **Soft routing is hard routing's strict superset** when the classifier is calibrated.
 
+### The Ablation That Decided the Shipped Model
+
+Every architecture must beat the obvious baseline. On the leak-free validation split:
+
+| Candidate | Val RMSE (raw likes) |
+|---|---:|
+| **Single XGB regressor + Duan smearing** ✅ shipped | **2,240.46** |
+| Ensemble: 70% single / 30% cascade (log-space blend) | 2,244.13 |
+| Cascade, soft-routed + per-tier smearing | 2,319.06 |
+| Cascade, soft-routed (raw space) | 2,341.12 |
+| Single XGB regressor (log target, no correction) | 2,419.30 |
+| Single XGB regressor (tweedie, raw target) | 2,440.01 |
+| Cascade, hard-routed | 2,451.24 |
+| Cascade with a *perfect* classifier (oracle) | 2,110.82 |
+
+Two follow-up experiments probed whether the cascade could be rescued. **Per-tier smearing** (each tier's regressor gets its own retransformation factor) improved it by only ~22 RMSE — the per-tier factors came out at 1.00–1.13 vs the single model's 1.72, showing that bucketing already acts as an implicit smearing correction and the cascade's true handicap is routing error (48% classifier accuracy). **Ensembling** the two smeared models lost at every blend weight, monotonically worsening as cascade weight grows — the cascade's errors are a noisier superset of the single model's (same features, same algorithm), so it contributes no complementary signal.
+
+Two lessons worth internalizing:
+1. **Retransformation bias is real.** Training on `log1p(likes)` and inverting with `expm1` systematically underestimates the conditional mean. Duan's smearing factor (mean of `exp(residual)` on held-out data, here **1.724**) corrects it — a single scalar worth ~180 RMSE.
+2. **The oracle bounds the cascade's upside at ~6%.** Even a perfect classifier only reaches 2,110 — so cascade engineering was never where the value was. The cascade is retained in the codebase (and as a debug column in the prediction CSVs) as the documented experiment.
+
 ---
 
-## Feature Engineering
+## 📐 Feature Engineering
 
 A clean OOP class (`TabularFeatureBuilder`) builds 32 numeric features. The same builder is imported by training and inference — drift between the two is impossible by construction.
 
@@ -193,51 +217,73 @@ On top of the 32 hand features, we concatenate a 384-dim Sentence-Transformer em
 
 ---
 
-## Results
+## 📊 Results
 
-Reported on the **regime-mirroring validation split** (1,227 rows held out: 379 from 10 unseen brands + 848 latest-date rows from remaining brands):
+Test results are on the **20,000-row competition test set** (10K unseen brands + 10K unseen time period), graded against the supplied ground-truth likes (3 unseen-time rows with `likes = -1` excluded). Validation results are on the leak-free regime-mirroring split (1,227 rows: 379 from 10 fully held-out brands + 848 latest-date rows). Shipped predictor: **single XGB regressor + smearing**, selected on validation — never on test.
 
 | Metric | Value |
 |---|---:|
-| **Validation RMSE (raw likes)** | **2,333.85** |
-| Validation RMSE (log scale) | 0.9609 |
-| Classifier accuracy | 82.2% |
-| Median predicted likes | 200 |
-| Median actual likes | 162 |
+| **Test RMSE — Unseen Brands (10K rows)** | **620.83** |
+| **Test RMSE — Unseen Time (10K rows)** | **1,861.01** |
+| Combined test RMSE (20K rows) | 1,387.15 |
+| Combined test MAE | 457.91 |
+| Test median absolute error | 137 likes |
+| Test predictions within 2× of actual | 53.2% |
+| Test predictions within 5× of actual | 80.2% |
+| Validation RMSE — shipped model | 2,240.46 |
+| Validation RMSE — cascade (soft) | 2,341.12 |
+| Validation classifier accuracy | 48.2% |
 
-### Test-set Output Distribution (10K rows each)
+### Per-regime detail (shipped model vs. the cascade it replaced)
 
-| Regime | Median | Mean | Max | Class routing (0 / 1 / 2) |
-|---|---:|---:|---:|---|
-| Unseen Brands | 396 | 678 | 8,828 | 7,378 / 2,441 / 181 |
-| Unseen Time | 225 | 641 | 12,419 | 6,907 / 2,669 / 424 |
+| Regime | Shipped RMSE | Cascade RMSE | Shipped MAE | Median pred (true) | Max pred (true) |
+|---|---:|---:|---:|---:|---:|
+| Unseen Brands | **620.83** | 1,242.27 | 350.39 | 453 (356) | 6,733 (1,863) |
+| Unseen Time | **1,861.01** | 2,060.92 | 565.46 | 231 (291) | 18,519 (28,721) |
 
-The model is **willing to bet on viral predictions** — 181 unseen-brand tweets get the viral treatment, with confident specialist outputs. The viral specialist is the highest-variance branch, but soft routing's probability weighting prevents the catastrophic mispredictions hard routing would suffer.
+The validation-selected model won on test in **both** regimes — the honest val split did its job as a leaderboard proxy. Unseen brands improve the most (−50% RMSE vs the cascade) because the smeared single regressor doesn't inherit the cascade's compounding routing errors on rows where no brand history exists. The remaining known weakness is over-prediction of the maximum on unseen brands (6,733 vs a true max of 1,863) — capping predictions by brand-history quantiles is the documented next step.
+
+### Naive-baseline context
+
+Constant predictors derived from the training set (median 73, mean 718), graded on the same test rows:
+
+| Predictor | Unseen Brands RMSE | Unseen Time RMSE | Combined (20K) |
+|---|---:|---:|---:|
+| Predict train median | 398.9 | 2,551.6 | 1,826 |
+| Predict train mean | 434.2 | 2,498.8 | 1,793 |
+| **Shipped model** | **620.83** | **1,861.01** | **1,387** |
+
+| Rank / calibration | Unseen Brands | Unseen Time |
+|---|---:|---:|
+| Spearman (model vs actual) | 0.02 | **0.72** |
+| Log-RMSE — model / best constant | **0.986** / 1.081 | **1.528** / 1.781 |
+
+Combined, the model beats the best constant by 23%. The two regimes tell different stories, and both should be told honestly: on **unseen time**, brand-history priors give the model real per-tweet ranking power (Spearman 0.72) and a 26% RMSE margin over any constant. On **unseen brands**, no per-tweet ranking signal exists in the metadata (Spearman ≈ 0.02 — virality is driven by follower counts and network effects that the data does not contain), so the model's value there is level calibration: it beats every constant on log-RMSE, while a constant wins on raw RMSE because that regime's true distribution is narrow (max 1,863). Any future model on this task should be benchmarked against these same constants first.
 
 ---
 
-## Engineering Highlights
+## ⚙️ Engineering Highlights
 
 > Talking points for the report and interview.
 
 ### 1. Train/inference feature parity by construction
 `TabularFeatureBuilder` is one class with an `is_train=True/False` flag — imported by both `01_features.py` and `04_predict.py`. If the training feature set changes, inference automatically reflects it. **It is structurally impossible** for the two paths to drift.
 
-### 2. Regime-mirroring train/val split
-The competition tests on **unseen brands** and **unseen time period**. We mirror both in the eval set: 5% of brands held out completely + latest 5% of remaining rows by date. Val RMSE now correlates with the leaderboard objective, not in-distribution noise.
+### 2. Regime-mirroring train/val split — now genuinely leak-free
+The competition tests on **unseen brands** and **unseen time period**. We mirror both in the eval set: 5% of brands held out completely + latest 5% of remaining rows by date. Crucially, **all statistics (company priors, scaler) are recomputed from train rows only after the split**, so held-out-brand rows see exactly the global fallback that truly unseen brands get at test time. Fixing this leak moved classifier accuracy from an inflated 65% to an honest 48% — and made val RMSE actually predictive of test (the val-selected model won on both test regimes).
 
 ### 3. Leave-one-out smoothed company prior
-Solves the row-level leakage in the naïve `company_avg_likes` feature, and provides clean fallback for unseen brands via the saved `company_stats.joblib`.
+Solves the row-level leakage in the naïve `company_avg_likes` feature, and provides clean fallback for unseen brands via the saved `company_stats.joblib`. During validation, priors are additionally rebuilt from train rows only (see #2) — LOO alone removes the row's own likes but not the brand's history.
 
 ### 4. Cyclical time + COVID flag + media regex
 Three high-signal features. Cyclical encoding fixes the periodic-feature edge case; COVID flag captures a real distribution shift; media regex unlocks video duration and view count as engagement signals.
 
-### 5. Soft routing — the cascade's killer detail
-Probability-weighted specialist ensemble. Strict superset of hard routing. Reduces the classifier-cascade-error problem to a graceful degradation problem.
+### 5. Ablation-driven model selection
+The cascade (with soft routing) was the design bet; the single-regressor baseline was the control. On the honest split the control won — with the Duan smearing correction contributing ~180 RMSE by itself — so the control ships. Selecting on validation and reporting the losing candidate side-by-side is the discipline this repo demonstrates.
 
 ---
 
-## Reproduce
+## 🚀 Reproduce
 
 ```bash
 cd Task-1
@@ -254,7 +300,7 @@ python 04_predict.py      # ~25 sec → outputs/submission_*.xlsx
 
 ---
 
-## Repository Layout
+## 📁 Repository Layout
 
 ```
 Task-1/
@@ -275,11 +321,16 @@ Task-1/
 │
 ├── models/                                  Trained artifacts (small, joblib)
 │   ├── company_stats.joblib                 Per-brand priors for inference
-│   ├── classifier_model.joblib              Stage A — 3-class XGB classifier
-│   ├── regressor_class_0.joblib             Stage B — common bucket regressor
-│   ├── regressor_class_1.joblib             Stage B — popular bucket regressor
-│   ├── regressor_class_2.joblib             Stage B — viral bucket regressor
-│   ├── class_bins.joblib                    Bucket boundaries (331, 2489)
+│   ├── baseline_regressor.joblib            ⭐ Shipped predictor (single XGB + smearing factor)
+│   ├── classifier_model.joblib              Stage A — 7-class XGB classifier
+│   ├── regressor_class_0.joblib             Stage B — quiet band (< 100 likes)
+│   ├── regressor_class_1.joblib             Stage B — low band (100-250)
+│   ├── regressor_class_2.joblib             Stage B — mild band (250-500)
+│   ├── regressor_class_3.joblib             Stage B — popular band (500-1k)
+│   ├── regressor_class_4.joblib             Stage B — very popular band (1k-2.5k)
+│   ├── regressor_class_5.joblib             Stage B — viral band (2.5k-5k)
+│   ├── regressor_class_6.joblib             Stage B — mega-viral band (5k+)
+│   ├── class_bins.joblib                    7-bucket edges [100, 250, 500, 1k, 2.5k, 5k]
 │   ├── feature_cols.joblib                  Feature order for inference
 │   ├── tabular_scaler.joblib                StandardScaler fit on tabular block
 │   └── metrics.json                         Machine-readable val metrics
@@ -293,10 +344,9 @@ Task-1/
 
 ---
 
-## Acknowledgements
+## 📜 Acknowledgements
 
-- **Google Developer Student Club, IIT Indore** — for facilitating the project
-- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023), IIT Madras** — for the problem and dataset
+- **Adobe Digital Experience** + **Inter IIT Tech Meet (Mid Prep 2023)** — for the problem and dataset
 - **dmlc/xgboost** — for the regressor and classifier
 - **HuggingFace** — for `sentence-transformers/all-MiniLM-L6-v2`
 
