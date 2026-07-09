@@ -4,14 +4,8 @@
 
 ### Brand-Aware Tweet Generation on a 4 GB Laptop GPU
 
-*Fine-tuned **Qwen2.5-1.5B** with **QLoRA** to generate marketing tweets from metadata alone — running entirely on an RTX 3050 Laptop (4 GB VRAM).*
+*Fine-tuned **Qwen2.5-1.5B** with **QLoRA** to generate marketing tweets from metadata alone — running entirely on 4 GB VRAM.*
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Transformers](https://img.shields.io/badge/Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
-[![PEFT](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
-[![TRL](https://img.shields.io/badge/TRL-0.29-orange)](https://github.com/huggingface/trl)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Pipeline](#pipeline) · [Sample Outputs](#sample-outputs) · [Architecture](#architecture-decisions) · [Results](#results) · [Reproduce](#reproduce)
 
