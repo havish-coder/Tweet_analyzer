@@ -4,10 +4,7 @@
 
 ### *Likes Prediction on a 4 GB GPU*
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
-[![scikit--learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
-[![Sentence Transformers](https://img.shields.io/badge/SBERT-MiniLM-blueviolet)](https://www.sbert.net)
+
 
 [Pipeline](#pipeline) · [Methodology](#methodology) · [Results](#results) · [Reproduce](#reproduce)
 
