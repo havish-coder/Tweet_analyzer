@@ -1,6 +1,6 @@
 # Tweet Analyzer
 
-A project under **Google Developer Student Club, IIT Indore** — end-to-end solutions for the **Adobe Behaviour Simulation Challenge** (Problem Statement: Inter IIT Tech Meet, Mid Prep 2023), built entirely on an RTX 3050 Laptop with 4 GB of VRAM.
+A project under **Google Developer Student Club, IIT Indore** — end-to-end solutions for the **Adobe Behaviour Simulation Challenge** (Problem Statement: Inter IIT Tech Meet, Mid Prep 2023), built entirely on a system with 4 GB of VRAM.
 
 ## What's Inside
 
