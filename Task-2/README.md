@@ -1,6 +1,6 @@
 <div align="center">
 
-# ✍️ Task 2 — Tweet Content Generation
+# Task 2 — Tweet Content Generation
 
 ### Brand-Aware Tweet Generation on a 4 GB Laptop GPU
 
@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Transformers](https://img.shields.io/badge/_Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
+[![Transformers](https://img.shields.io/badge/Transformers-4.45+-FFD21E)](https://huggingface.co/transformers)
 [![PEFT](https://img.shields.io/badge/PEFT-QLoRA-blue)](https://github.com/huggingface/peft)
 [![TRL](https://img.shields.io/badge/TRL-0.29-orange)](https://github.com/huggingface/trl)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -25,7 +25,7 @@
 |---|---|
 | **What** | Generates a brand-appropriate tweet given only `(company, timestamp, target_likes, media_url)`. |
 | **How** | Vision-Language Model captions the image → Qwen2.5-1.5B fine-tuned via **QLoRA** writes the tweet → beam search decodes. |
-| **Why it's hard** | 1.5 B parameters + optimizer + activations into **4 GB of VRAM**. Required 4-bit NF4 quantization, paged 8-bit AdamW, gradient checkpointing, and a custom **VRAMGuard** callback. |
+| **Why this is difficult** | Fitting 1.5B parameters plus optimizer state and activations into **4 GB of VRAM**. Required 4-bit NF4 quantization, paged 8-bit AdamW, gradient checkpointing, and a custom **VRAMGuard** callback. |
 | **Built for** | Google Developer Student Club, IIT Indore — Adobe Behaviour Simulation Challenge (Inter IIT Tech Meet, Mid Prep 2023). |
 
 ---
@@ -84,7 +84,8 @@ flowchart LR
     C -->|"Stage 2"| D[prep_llm_data.py<br/>ChatML prompts]
     D --> E[(llm_train_data.jsonl)]
     E -->|"Stage 3"| F[finetune_qwen.py<br/>QLoRA r=16<br/>3 epochs]
-    F --> G[/Trained LoRA<br/>adapter/<br/>~8 MB/]
+    F --> F2[select_checkpoint.py<br/>Stage 3b: pick best<br/>by BLEU/ROUGE]
+    F2 --> G[/Trained LoRA<br/>adapter/<br/>~8 MB/]
     H[(test_unseen_brands.csv<br/>test_unseen_time.csv)] --> I
     G -->|"Stage 4"| I[eval.py<br/>beam search n=4]
     I --> J[/submission.csv/]
@@ -98,41 +99,9 @@ flowchart LR
     style B fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style D fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style F fill:#f3e5f5,stroke:#6a1b9a,color:#000
+    style F2 fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style I fill:#f3e5f5,stroke:#6a1b9a,color:#000
 ```
-
-<details>
-<summary> ASCII fallback (for plain-text viewers)</summary>
-
-```
-                  train.csv  (17.3K tweets)               test_unseen_*.csv
-                       │                                          │
-                       ▼                                          ▼
-            ┌────────────────────┐                     ┌────────────────────┐
-   Stage 1  │  enrich_vlm.py     │            Stage 4  │  eval.py           │
-            │  Qwen2.5-VL-3B     │                     │  beam search n=4   │
-            │  4-bit NF4         │                     │  + post-process    │
-            └────────┬───────────┘                     └────────▲───────────┘
-                     ▼                                          │
-            train_enriched.csv                                  │
-                     │                                          │
-                     ▼                                          │
-            ┌────────────────────┐                              │
-   Stage 2  │  prep_llm_data.py  │                              │
-            │  ChatML template   │                              │
-            └────────┬───────────┘                              │
-                     ▼                                          │
-            llm_train_data.jsonl                                │
-                     │                                          │
-                     ▼                                          │
-            ┌────────────────────┐                              │
-   Stage 3  │  finetune_qwen.py  │   ──── adapter/ ─────────────┘
-            │  QLoRA r=16, α=32  │       (LoRA weights, 8 MB)
-            │  3 epochs          │
-            └────────────────────┘
-```
-
-</details>
 
 ---
 
@@ -165,7 +134,7 @@ flowchart LR
 
 **Best checkpoint:** `checkpoint-1000` (shipped in `adapter/`), selected by eval_loss.
 
-> **Notes on this table.** The planned schedule was 3 epochs (~3,087 optimizer steps); the logged run covers steps up to 1,150 (~1.1 epochs). Checkpoint selection by eval_loss is a known weakness — token-level loss is dominated by templated tokens and doesn't track BLEU/ROUGE. `src/select_checkpoint.py` now scores saved checkpoints by actual generation metrics; use it after any re-training run.
+> **Notes on this table.** The planned schedule was 3 epochs (approximately 3,087 optimizer steps); the logged run covers steps up to 1,150 (approximately 1.1 epochs). Checkpoint selection by eval_loss is a known weakness, since token-level loss is dominated by templated tokens and does not track BLEU/ROUGE. `src/select_checkpoint.py` now scores saved checkpoints by actual generation metrics; use it after any re-training run.
 
 ### Fine-tuned vs base model (seeded random 500 rows/regime, identical prompts + decoding)
 
@@ -190,11 +159,11 @@ Fine-tuning roughly doubles-to-triples every overlap metric — bootstrap 95% CI
 
 ## Engineering Highlights
 
-> The non-obvious tricks that made this run on 4 GB. These are the parts an interviewer probably wants to talk about.
+> The non-obvious design decisions that made this pipeline run on 4 GB of VRAM.
 
 ### 1. VRAMGuard callback — `gc.collect()` *only* at the edge
 
-The naive solution is `torch.cuda.empty_cache()` after every step. That **hurts throughput** (10 s/it  14 s/it) because PyTorch loses its allocator cache. Our callback fires only when reserved memory crosses 98%:
+The naive solution is `torch.cuda.empty_cache()` after every step. That **hurts throughput** (10 s/it rising to 14 s/it) because PyTorch loses its allocator cache. Our callback fires only when reserved memory crosses 98%:
 
 ```python
 class VRAMGuardCallback(TrainerCallback):
@@ -232,7 +201,7 @@ Both `prep_llm_data.py` and `eval.py` import the same `build_messages()` from `p
    caption all needed images
         │
         ▼
-   del VLM + torch.cuda.empty_cache()    frees ~2 GB
+   del VLM + torch.cuda.empty_cache()    (frees ~2 GB)
         │
         ▼
    load LLM (Qwen2.5-1.5B + LoRA, ~2 GB)
@@ -267,7 +236,7 @@ python src/eval.py
 # USE_RETRIEVAL=1     few-shot brand examples in prompt (A/B only — the shipped
 # adapter was fine-tuned WITHOUT examples)
 # GEN_BATCH=8         generation batch size (batched, left-padded)
-# LENGTH_PENALTY=1.1  nudge beam search toward reference-length tweets
+# LENGTH_PENALTY=1.1  nudges beam search toward reference-length tweets
 
 # 3. (Optional) reproduce the full training pipeline from scratch
 python src/enrich_vlm.py           # Stage 1: image captions  (~6 h on 4 GB GPU)
@@ -331,7 +300,7 @@ Task-2/
 <div align="center">
 
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
-[![HuggingFace](https://img.shields.io/badge/_Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
+[![HuggingFace](https://img.shields.io/badge/Hugging_Face-FFD21E?style=for-the-badge)](https://huggingface.co)
 [![PEFT](https://img.shields.io/badge/PEFT-4B8BBE?style=for-the-badge)](https://github.com/huggingface/peft)
 [![TRL](https://img.shields.io/badge/TRL-FF6F00?style=for-the-badge)](https://github.com/huggingface/trl)
 [![bitsandbytes](https://img.shields.io/badge/bitsandbytes-009688?style=for-the-badge)](https://github.com/TimDettmers/bitsandbytes)
@@ -351,11 +320,3 @@ Task-2/
 ## License
 
 [MIT](LICENSE) for the code in this repository. The final solution IP belongs to Adobe per the challenge terms. Dataset is open-source and was sampled from public Twitter enterprise accounts.
-
----
-
-<div align="center">
-
-*Built on a laptop. Designed to ship.*
-
-</div>

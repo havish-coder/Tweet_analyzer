@@ -15,6 +15,26 @@ The Adobe challenge defines two complementary tasks on the same dataset of marke
 | **Model** | XGBoost regressor + smearing correction (7-bucket cascade kept as ablation control) | Qwen2.5-1.5B-Instruct + LoRA r=16 |
 | **Folder** | [`Task-1/`](Task-1/README.md) | [`Task-2/`](Task-2/README.md) |
 
+```mermaid
+flowchart TB
+    subgraph T1["Task 1 — Likes Prediction"]
+        direction LR
+        A1[(17K training tweets<br/>+ 20K test rows)] --> B1[Feature engineering<br/>+ MiniLM embeddings]
+        B1 --> C1[XGBoost regressor<br/>+ Duan smearing correction]
+        C1 --> D1[/Predicted likes/]
+    end
+
+    subgraph T2["Task 2 — Tweet Generation"]
+        direction LR
+        A2[(Same tweet corpus<br/>+ media URLs)] --> B2[Qwen2.5-VL-3B<br/>image captioning]
+        B2 --> C2[Qwen2.5-1.5B<br/>QLoRA fine-tuning]
+        C2 --> D2[/Generated tweet text/]
+    end
+
+    style T1 fill:#e3f2fd,stroke:#1565c0,color:#000
+    style T2 fill:#fff3e0,stroke:#e65100,color:#000
+```
+
 ## Achievements
 
 ### Task 1 — Likes Prediction

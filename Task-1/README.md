@@ -1,8 +1,8 @@
 <div align="center">
 
-# 📊 Task 1 — Tweet Likes Prediction
+# Task 1 — Tweet Likes Prediction
 
-### *Classification-then-Regression on a 4 GB VRAM*
+### *Likes Prediction on a 4 GB GPU*
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-FF6F00)](https://xgboost.ai)
@@ -28,6 +28,8 @@
 
 ## Pipeline
 
+The solid path is the shipped predictor; the dashed path is the cascade retained as a documented ablation control (see [The Ablation That Decided the Shipped Model](#the-ablation-that-decided-the-shipped-model)).
+
 ```mermaid
 flowchart LR
     A[(train.csv<br/>17K tweets)] --> B[01_features.py]
@@ -39,13 +41,15 @@ flowchart LR
     C --> G[03_train.py]
     F --> G
 
-    G --> H1[/classifier.joblib<br/>7-class softprob/]
-    G --> H2[/regressor_class_0..6.joblib<br/>7 specialist regressors<br/>one per popularity band/]
+    G --> S[/baseline_regressor.joblib<br/>single XGB + Duan smearing<br/>shipped predictor/]
+    G -.-> H1[/classifier.joblib<br/>7-class softprob<br/>ablation control/]
+    G -.-> H2[/regressor_class_0..6.joblib<br/>7 specialist regressors<br/>ablation control/]
 
     I[(test_company.xlsx<br/>test_time.xlsx)] --> J[04_predict.py]
     D --> J
-    H1 --> J
-    H2 --> J
+    S --> J
+    H1 -.-> J
+    H2 -.-> J
     J --> K[/submission_company.xlsx<br/>submission_time.xlsx/]
 
     style A fill:#e3f2fd,stroke:#1565c0,color:#000
@@ -53,54 +57,15 @@ flowchart LR
     style F fill:#e3f2fd,stroke:#1565c0,color:#000
     style I fill:#e3f2fd,stroke:#1565c0,color:#000
     style D fill:#fff3e0,stroke:#e65100,color:#000
-    style H1 fill:#fff3e0,stroke:#e65100,color:#000
-    style H2 fill:#fff3e0,stroke:#e65100,color:#000
+    style S fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style H1 fill:#eeeeee,stroke:#9e9e9e,color:#000,stroke-dasharray: 4 3
+    style H2 fill:#eeeeee,stroke:#9e9e9e,color:#000,stroke-dasharray: 4 3
     style K fill:#fff3e0,stroke:#e65100,color:#000
     style B fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style E fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style G fill:#f3e5f5,stroke:#6a1b9a,color:#000
     style J fill:#f3e5f5,stroke:#6a1b9a,color:#000
 ```
-
-<details>
-<summary> ASCII fallback</summary>
-
-```
-   train.csv  (17K tweets)                    test_company.xlsx
-       │                                      test_time.xlsx
-       ▼                                              │
- ┌──────────────────┐                                 ▼
- │ 01_features.py   │                       ┌──────────────────────┐
- │  cyclical time,  │           ┌──────────►│ 04_predict.py        │
- │  COVID flag,     │           │           │  per row:            │
- │  media regex,    │           │           │   - features         │
- │  LOO company     │           │           │   - MiniLM embed     │
- └────────┬─────────┘           │           │   - classifier probs │
-          │                     │           │   - 7 reg preds      │
-          ▼                     │           │   - soft route Σ p·r │
-  features_train.csv            │           └──────────┬───────────┘
-          │                     │                      ▼
-          ▼                     │              submission_*.xlsx
- ┌──────────────────┐           │
- │ 02_embed.py      │           │
- │ MiniLM 384-dim   │           │
- └────────┬─────────┘           │
-          │                     │
-          ▼                     │
-   embeddings_train.npy         │
-          │                     │
-          ▼                     │
- ┌────────────────────────────┐ │
- │ 03_train.py                │ │
- │  Stage A: XGB classifier   │ │
- │   (7 buckets, class-weighted)│
- │  Stage B: 7 XGB regressors │─┘
- │   (one per bucket, log_likes)
- │  + single-reg baseline     │
- └────────────────────────────┘
-```
-
-</details>
 
 ---
 
@@ -136,10 +101,10 @@ Likes follow a **power-law distribution** — median 73, max 254,931. A single m
 | 5 (viral) | 0.000 | 0.000 | 0.000 |
 | 6 (mega-viral) | 0.389 | 0.250 | 0.304 |
 
-> Without leaked brand priors, the viral band is essentially unlearnable from metadata alone (0% recall) and the mid bands blur into their neighbours. This is why the cascade loses to the single regressor below — the routing signal isn't strong enough to pay for the added complexity.
+> Without leaked brand priors, the viral band is essentially unlearnable from metadata alone (0% recall) and the mid bands blur into their neighbours. This is why the cascade loses to the single regressor below: the routing signal is not strong enough to justify the added complexity.
 
 ### Stage B — Seven Specialist Regressors
-Each XGBoost regressor sees only its bucket's rows during training, with `log1p(likes)` as the target. By specializing, each one learns its bucket's distribution tightly instead of trying to fit the whole range. The flip side (worth knowing): at inference every specialist scores every row, including rows far outside its training range — soft routing weights that extrapolation by class probability rather than eliminating it.
+Each XGBoost regressor sees only its bucket's rows during training, with `log1p(likes)` as the target. By specializing, each one learns its bucket's distribution tightly instead of trying to fit the whole range. The limitation is that at inference every specialist scores every row, including rows far outside its training range; soft routing weights that extrapolation by class probability rather than eliminating it.
 
 ### Soft Routing — The Inference Step
 The naïve cascade picks `argmax(class_probs)` and uses only that bucket's regressor — **hard routing**. The problem: when the classifier is wrong, the row goes to a regressor that *never trained on its distribution*. Errors compound.
@@ -148,7 +113,7 @@ The naïve cascade picks `argmax(class_probs)` and uses only that bucket's regre
 
 $$\hat{y} = \sum_{k=0}^{6} p(k \mid x) \cdot \texttt{expm1}(r_k(x))$$
 
-For uncertain rows, regressor predictions get averaged out  graceful degradation. For confident rows, one term dominates  same answer as hard routing. **Soft routing is hard routing's strict superset** when the classifier is calibrated.
+For uncertain rows, regressor predictions get averaged out, giving graceful degradation. For confident rows, one term dominates, giving the same answer as hard routing. **Soft routing is hard routing's strict superset** when the classifier is calibrated.
 
 ### The Ablation That Decided the Shipped Model
 
@@ -167,9 +132,9 @@ Every architecture must beat the obvious baseline. On the leak-free validation s
 
 Two follow-up experiments probed whether the cascade could be rescued. **Per-tier smearing** (each tier's regressor gets its own retransformation factor) improved it by only ~22 RMSE — the per-tier factors came out at 1.00–1.13 vs the single model's 1.72, showing that bucketing already acts as an implicit smearing correction and the cascade's true handicap is routing error (48% classifier accuracy). **Ensembling** the two smeared models lost at every blend weight, monotonically worsening as cascade weight grows — the cascade's errors are a noisier superset of the single model's (same features, same algorithm), so it contributes no complementary signal.
 
-Two lessons worth internalizing:
-1. **Retransformation bias is real.** Training on `log1p(likes)` and inverting with `expm1` systematically underestimates the conditional mean. Duan's smearing factor (mean of `exp(residual)` on held-out data, here **1.724**) corrects it — a single scalar worth ~180 RMSE.
-2. **The oracle bounds the cascade's upside at ~6%.** Even a perfect classifier only reaches 2,110 — so cascade engineering was never where the value was. The cascade is retained in the codebase (and as a debug column in the prediction CSVs) as the documented experiment.
+Two conclusions follow:
+1. **Retransformation bias is real.** Training on `log1p(likes)` and inverting with `expm1` systematically underestimates the conditional mean. Duan's smearing factor (mean of `exp(residual)` on held-out data, here **1.724**) corrects it, contributing roughly 180 RMSE by itself.
+2. **The oracle bounds the cascade's upside at approximately 6%.** Even a perfect classifier only reaches 2,110, so cascade engineering was never where the value was. The cascade is retained in the codebase (and as a debug column in the prediction CSVs) as a documented experiment.
 
 ---
 
@@ -241,7 +206,7 @@ Test results are on the **20,000-row competition test set** (10K unseen brands +
 | Unseen Brands | **620.83** | 1,242.27 | 350.39 | 453 (356) | 6,733 (1,863) |
 | Unseen Time | **1,861.01** | 2,060.92 | 565.46 | 231 (291) | 18,519 (28,721) |
 
-The validation-selected model won on test in **both** regimes — the honest val split did its job as a leaderboard proxy. Unseen brands improve the most (−50% RMSE vs the cascade) because the smeared single regressor doesn't inherit the cascade's compounding routing errors on rows where no brand history exists. The remaining known weakness is over-prediction of the maximum on unseen brands (6,733 vs a true max of 1,863) — capping predictions by brand-history quantiles is the documented next step.
+The validation-selected model won on test in **both** regimes, confirming the leak-free validation split as a reliable leaderboard proxy. Unseen brands improve the most (−50% RMSE vs. the cascade) because the smeared single regressor does not inherit the cascade's compounding routing errors on rows with no brand history. The remaining known weakness is over-prediction of the maximum on unseen brands (6,733 vs. a true maximum of 1,863); capping predictions by brand-history quantiles is the documented next step.
 
 ### Naive-baseline context
 
@@ -264,7 +229,7 @@ Combined, the model beats the best constant by 23%. The two regimes tell differe
 
 ## Engineering Highlights
 
-> Talking points for the report and interview.
+> Design decisions with the most direct impact on correctness and results.
 
 ### 1. Train/inference feature parity by construction
 `TabularFeatureBuilder` is one class with an `is_train=True/False` flag — imported by both `01_features.py` and `04_predict.py`. If the training feature set changes, inference automatically reflects it. **It is structurally impossible** for the two paths to drift.
@@ -289,10 +254,10 @@ The cascade (with soft routing) was the design bet; the single-regressor baselin
 cd Task-1
 pip install -r requirements.txt
 
-python 01_features.py     # ~30 sec  features_train.csv, models/company_stats.joblib
-python 02_embed.py        # ~10 sec  embeddings_train.npy (GPU recommended)
-python 03_train.py        # ~2 min   models/{classifier,regressor_0/1/2}.joblib
-python 04_predict.py      # ~25 sec  outputs/submission_*.xlsx
+python 01_features.py     # ~30 sec, writes features_train.csv, models/company_stats.joblib
+python 02_embed.py        # ~10 sec, writes embeddings_train.npy (GPU recommended)
+python 03_train.py        # ~2 min, writes models/{classifier,regressor_0/1/2}.joblib
+python 04_predict.py      # ~25 sec, writes outputs/submission_*.xlsx
 ```
 
 **Hardware tested:** RTX 3050 Laptop, 4 GB VRAM, Windows 11.
